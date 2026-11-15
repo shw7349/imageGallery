@@ -28,8 +28,8 @@
 | 관리자 | 로그인(계정은 서버에서만 생성), 카테고리·게시물 작성/수정/삭제, 공개·숨김 전환, 사진 순서·대표 사진 지정 |
 | 사진 업로드 | 브라우저 → S3 **직접 업로드**(멀티파트, 16MB 파트). 끊겨도 **이어 올리기**. 최대 1GB. JPEG·TIFF·PNG·RAW(arw, cr2, cr3, nef, raf, orf, rw2, dng) |
 | 자동 변환 | 업로드가 끝나면 워커가 썸네일(600px)·미리보기(3840px)·딥줌 타일(DZI)을 만들고 EXIF를 추출(GPS는 제외). 300MB 파일 처리 시 메모리 약 200MB |
-| 방문자 | 카테고리·게시물 목록(검색·정렬·페이지네이션), 상세, 조회수(방문자당 하루 1회), 원본 다운로드(게시물별 허용, 횟수 제한) |
-| 통계 | 일별 조회수(전체·게시물별), 기간별 인기 게시물, 원본 다운로드 순위 |
+| 방문자 | 카테고리·게시물 목록(검색·정렬·페이지네이션), 상세, 조회수(방문자당 하루 1회) |
+| 통계 | 일별 조회수(전체·게시물별), 기간별 인기 게시물 |
 
 설계 원칙
 
@@ -103,7 +103,7 @@ curl "localhost:8000/api/posts?size=3"          # 공개 목록
 curl -G "localhost:8000/api/posts" --data-urlencode "q=한강"   # 검색(curl은 한글을 직접 인코딩해 줘야 함)
 ```
 
-- 목록·상세·검색·조회수·원본 다운로드가 실제와 똑같이 동작합니다(가짜 응답 모드가 아닙니다).
+- 목록·상세·검색·조회수가 실제와 똑같이 동작합니다(가짜 응답 모드가 아닙니다).
 - 데모 게시물만 지우고 다시 만들기: `make demo-data ARGS=--reset`
 
 딥줌(확대) 확인 — 로컬 MinIO는 `http://localhost:5173` 출처만 허용하므로 그 포트로 뷰어를 띄웁니다.
@@ -166,7 +166,7 @@ uv run python scripts/upload_test.py /tmp/big.tif --post-id 1                   
 | status | code | 의미 |
 |---|---|---|
 | 401 | `authentication_required`, `invalid_credentials` | 로그인 필요 / 아이디·비밀번호 불일치 |
-| 403 | `forbidden` | CSRF 토큰 누락·불일치, 원본 다운로드 비허용 |
+| 403 | `forbidden` | CSRF 토큰 누락·불일치 |
 | 404 | `not_found` | 없음(방문자 API는 비공개 게시물도 404) |
 | 409 | `conflict` | 현재 상태에서 불가(중복 이름, 공개 조건 미충족 등) |
 | 413 | `payload_too_large` | 요청 본문이 1MB 초과 |
@@ -181,12 +181,12 @@ uv run python scripts/upload_test.py /tmp/big.tif --post-id 1                   
 |---|---|
 | `GET /api/categories` | 카테고리 목록 |
 | `GET /api/posts?category=&q=&page=&size=&sort=` | 공개 게시물 목록. `sort`: `published`(기본) \| `views` |
-| `GET /api/posts/{id}` | 상세: 본문, 사진별 `thumbUrl`·`previewUrl`·`dziUrl`·`exif`·`originalDownloadUrl` |
+| `GET /api/posts/{id}` | 상세: 본문, 사진별 `thumbUrl`·`previewUrl`·`dziUrl`·`exif` |
 | `POST /api/posts/{id}/views` | 조회수 기록(방문자당 하루 1회, 항상 204) |
-| `GET /api/photos/{id}/original` | 원본 다운로드: 허용 시 10분짜리 URL로 302, 비허용 403 |
 
 - 공개 조건: 게시물이 `PUBLISHED`이고 처리 완료(`READY`) 사진이 1장 이상.
 - 이미지 URL은 CDN 기준 절대 URL로 내려옵니다. 프론트에서 조립하지 말고 그대로 쓰세요.
+- 원본 파일은 방문자에게 제공하지 않습니다(다운로드 API 없음). 원본은 비공개 버킷에 보관하고 재처리에만 씁니다.
 - 딥줌은 [OpenSeadragon](https://openseadragon.github.io/)에 `dziUrl`을 넘기면 됩니다.
 
 ### 관리자 API (`/api/admin/*`, 로그인 필요)
@@ -207,7 +207,6 @@ uv run python scripts/upload_test.py /tmp/big.tif --post-id 1                   
 | `POST /photos/{id}/retry` | 변환 실패(`FAILED`) 사진 재처리 |
 | `GET /stats/views?from=&to=&postId=` | 일별 조회수(최대 366일). `postId`를 주면 그 게시물만 |
 | `GET /stats/top?days=7\|30\|90` | 기간별 조회수 상위 20 게시물 |
-| `GET /stats/downloads?days=7\|30\|90` | 원본 다운로드 상위 50 사진 |
 
 상태값
 
@@ -295,7 +294,6 @@ await admin(`/photos/${up.photoId}/complete`, "POST", { parts });
 | `ADMIN_HOSTS` | (비움) | 관리자 API를 허용할 도메인(쉼표 구분). 다른 도메인에서는 `/api/admin/*`이 404. **운영 필수** |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:5173` | 다른 출처의 프론트 개발 서버 |
 | `UPLOAD_MAX_BYTES` | `1073741824` (1GB) | 사진 한 장의 최대 크기 |
-| `DOWNLOADS_PER_HOUR` · `DOWNLOADS_PER_HOUR_PER_IP` · `DOWNLOADS_PER_DAY_TOTAL` | `20` · `40` · `500` | 원본 다운로드 제한(방문자·IP 시간당, 사이트 전체 하루) |
 | `VIEWS_RATE_PER_MINUTE` | `60` | IP당 조회수 기록 요청 한도 |
 | `STATS_TIMEZONE` | `Asia/Seoul` | 일별 통계의 날짜 기준 |
 | `WORKER_CONCURRENCY` | `1` | 워커 동시 처리 수(메모리에 맞춰 조정) |
@@ -383,7 +381,6 @@ docs/openapi.json     API 명세
 4. 원본 버킷은 비공개, 파생 버킷은 CDN을 통해서만 공개합니다. 원본 버킷 CORS는 관리자 도메인의 `PUT`을 허용하고
    `ETag` 헤더를 노출해야 합니다([`scripts/s3_cors.json`](scripts/s3_cors.json)).
 5. 원본 버킷에 "미완료 멀티파트 업로드 7일 후 삭제" 수명 주기를 겁니다.
-6. 원본 다운로드는 전송 요금이 그대로 나갑니다. `DOWNLOADS_PER_DAY_TOTAL`을 규모에 맞게 낮추고 예산 알림을 설정하세요.
-7. Postgres를 정기적으로 백업합니다.
+6. Postgres를 정기적으로 백업합니다.
 
 참고 사양: 4GB 메모리 서버 1대(예: AWS t4g.medium)에서 API·워커·Postgres를 함께 돌리는 것을 기준으로 만들었습니다.

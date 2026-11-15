@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote
 
 import boto3
 from botocore.config import Config
@@ -30,7 +29,6 @@ else:  # 런타임에는 스텁 패키지가 없다(개발 의존성)
 logger = logging.getLogger(__name__)
 
 PART_URL_TTL = timedelta(hours=1)
-DOWNLOAD_URL_TTL = timedelta(minutes=10)
 _DELETE_BATCH = 1000
 
 
@@ -181,18 +179,6 @@ class S3Storage:
         except BotoCoreError as exc:
             raise StorageError(f"head_object failed: {key}") from exc
         return int(res["ContentLength"])
-
-    def presign_get(self, bucket: str, key: str, download_filename: str | None = None) -> str:
-        """10분짜리 GET URL. 파일명을 주면 Content-Disposition(RFC 5987)으로 그 이름으로 저장되게 한다."""
-        params: dict[str, Any] = {"Bucket": bucket, "Key": key}  # Any: boto3 파라미터
-        if download_filename:
-            ascii_name = download_filename.encode("ascii", "replace").decode().replace('"', "_")
-            params["ResponseContentDisposition"] = (
-                f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(download_filename)}"
-            )
-        return self.client.generate_presigned_url(
-            "get_object", Params=params, ExpiresIn=int(DOWNLOAD_URL_TTL.total_seconds())
-        )
 
     def delete_object(self, bucket: str, key: str) -> None:
         try:

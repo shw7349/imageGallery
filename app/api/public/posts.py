@@ -8,7 +8,7 @@ from app.api.public.cache import PUBLIC_CACHE
 from app.schemas.pagination import MAX_PAGE_SIZE, Page
 from app.schemas.public import Exif, PublicPhoto, PublicPostDetail, PublicPostSummary, PublicSort
 from app.services import public as service
-from app.services.urls import cdn_url, original_download_path
+from app.services.urls import cdn_url
 
 router = APIRouter()
 
@@ -68,7 +68,6 @@ def get_post(post_id: int, db: DbSession, settings: AppSettings, response: Respo
             preview_url=cdn_url(cdn, p.preview_key or ""),
             dzi_url=cdn_url(cdn, p.dzi_key or ""),
             exif=Exif.model_validate(p.exif or {}),
-            original_download_url=original_download_path(p.id) if post.allow_original_download else None,
         )
         for p in found.photos
     ]
@@ -81,6 +80,5 @@ def get_post(post_id: int, db: DbSession, settings: AppSettings, response: Respo
         category_name=found.category_name,
         view_count=post.view_count,
         published_at=post.published_at or post.created_at,
-        allow_original_download=post.allow_original_download,
         photos=photos,
     )

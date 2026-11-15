@@ -3,7 +3,6 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
-    Boolean,
     CheckConstraint,
     ForeignKey,
     Identity,
@@ -42,7 +41,6 @@ class Post(TimestampMixin, Base):
     status: Mapped[PostStatus] = mapped_column(
         str_enum(PostStatus, "status"), default=PostStatus.DRAFT, server_default=PostStatus.DRAFT.value
     )
-    allow_original_download: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # photo ↔ post 순환 참조라 use_alter로 테이블 생성 후 FK를 건다.
     cover_photo_id: Mapped[int | None] = mapped_column(
         ForeignKey("photo.id", ondelete="SET NULL", use_alter=True)

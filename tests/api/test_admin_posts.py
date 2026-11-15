@@ -32,11 +32,11 @@ def _create(admin: AdminClient, category_id: int, title: str = "제목", **extra
 
 
 def test_create_defaults_to_draft(admin: AdminClient, category_id: int) -> None:
-    post = _create(admin, category_id, body="본문", allowOriginalDownload=True)
+    post = _create(admin, category_id, body="본문")
     assert post["status"] == "DRAFT"
     assert post["categoryName"] == "풍경"
     assert post["body"] == "본문"
-    assert post["allowOriginalDownload"] is True
+    assert "allowOriginalDownload" not in post
     assert post["publishedAt"] is None
     assert post["photos"] == []
     assert post["photoCount"] == 0
@@ -68,15 +68,14 @@ def test_get_and_404(admin: AdminClient, category_id: int, engine: Engine) -> No
 
 
 def test_update_replaces_fields(admin: AdminClient, category_id: int) -> None:
-    post = _create(admin, category_id, body="old", allowOriginalDownload=True)
+    post = _create(admin, category_id, body="old")
     other = admin.http.post("/api/admin/categories", json={"name": "인물"}, headers=admin.headers()).json()
     res = admin.http.put(
         f"{POSTS}/{post['id']}", json={"categoryId": other["id"], "title": "새 제목"}, headers=admin.headers()
     )
     assert res.status_code == 200
     body = res.json()
-    assert (body["title"], body["categoryName"], body["body"]) == ("새 제목", "인물", "")
-    assert body["allowOriginalDownload"] is False  # PUT은 전체 교체
+    assert (body["title"], body["categoryName"], body["body"]) == ("새 제목", "인물", "")  # PUT은 전체 교체
 
 
 def test_delete_removes_photos_and_s3_objects(

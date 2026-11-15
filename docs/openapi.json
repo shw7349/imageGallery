@@ -1760,60 +1760,6 @@
         }
       }
     },
-    "/api/admin/stats/downloads": {
-      "get": {
-        "tags": [
-          "admin-stats"
-        ],
-        "summary": "원본 다운로드 상위 사진",
-        "operationId": "downloads_api_admin_stats_downloads_get",
-        "parameters": [
-          {
-            "name": "days",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/StatsPeriod",
-              "description": "최근 며칠",
-              "default": 30
-            },
-            "description": "최근 며칠"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DownloadsStatsOut"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "로그인 필요 / 인증 실패",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "입력값 검증 실패",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/categories": {
       "get": {
         "tags": [
@@ -2053,89 +1999,6 @@
           }
         }
       }
-    },
-    "/api/photos/{photo_id}/original": {
-      "get": {
-        "tags": [
-          "public"
-        ],
-        "summary": "원본 다운로드",
-        "description": "게시물이 원본 다운로드를 허용하면 10분짜리 S3 URL로 302 리다이렉트한다. 브라우저에서 <a href>로 열면 원래 파일명으로 저장된다.",
-        "operationId": "download_original_api_photos__photo_id__original_get",
-        "parameters": [
-          {
-            "name": "photo_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Photo Id"
-            }
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Location 헤더의 URL로 이동",
-            "headers": {
-              "Location": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "권한 없음 (CSRF 토큰 누락·불일치 포함)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "대상 없음",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "요청 과다 (Retry-After 헤더)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "파일 저장소(S3) 일시 장애 (Retry-After 헤더)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "입력값 검증 실패",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -2291,10 +2154,6 @@
               "DRAFT"
             ]
           },
-          "allowOriginalDownload": {
-            "type": "boolean",
-            "title": "Alloworiginaldownload"
-          },
           "coverPhotoId": {
             "anyOf": [
               {
@@ -2367,7 +2226,6 @@
           "categoryName",
           "title",
           "status",
-          "allowOriginalDownload",
           "coverPhotoId",
           "photoCount",
           "viewCount",
@@ -2414,10 +2272,6 @@
             "examples": [
               "DRAFT"
             ]
-          },
-          "allowOriginalDownload": {
-            "type": "boolean",
-            "title": "Alloworiginaldownload"
           },
           "coverPhotoId": {
             "anyOf": [
@@ -2477,7 +2331,6 @@
           "categoryName",
           "title",
           "status",
-          "allowOriginalDownload",
           "coverPhotoId",
           "photoCount",
           "viewCount",
@@ -2636,31 +2489,6 @@
           "views"
         ],
         "title": "DailyViews"
-      },
-      "DownloadsStatsOut": {
-        "properties": {
-          "days": {
-            "type": "integer",
-            "title": "Days",
-            "examples": [
-              30
-            ]
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/PhotoDownloads"
-            },
-            "type": "array",
-            "title": "Items",
-            "description": "기간 내 원본 다운로드 상위 50개 사진"
-          }
-        },
-        "type": "object",
-        "required": [
-          "days",
-          "items"
-        ],
-        "title": "DownloadsStatsOut"
       },
       "Exif": {
         "properties": {
@@ -3003,54 +2831,6 @@
         ],
         "title": "PartUrlsOut"
       },
-      "PhotoDownloads": {
-        "properties": {
-          "photoId": {
-            "type": "integer",
-            "title": "Photoid",
-            "examples": [
-              10
-            ]
-          },
-          "postId": {
-            "type": "integer",
-            "title": "Postid",
-            "examples": [
-              1
-            ]
-          },
-          "postTitle": {
-            "type": "string",
-            "title": "Posttitle",
-            "examples": [
-              "제주 오름 일출"
-            ]
-          },
-          "originalFilename": {
-            "type": "string",
-            "title": "Originalfilename",
-            "examples": [
-              "DSC01234.ARW"
-            ]
-          },
-          "downloads": {
-            "type": "integer",
-            "title": "Downloads",
-            "examples": [
-              5
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "photoId",
-          "postId",
-          "postTitle",
-          "originalFilename",
-          "downloads"
-        ],
-        "title": "PhotoDownloads"
-      },
       "PhotoOrderIn": {
         "properties": {
           "photoIds": {
@@ -3115,12 +2895,6 @@
             "examples": [
               "새벽 5시, 새별오름에서."
             ]
-          },
-          "allowOriginalDownload": {
-            "type": "boolean",
-            "title": "Alloworiginaldownload",
-            "description": "방문자의 원본 다운로드 허용",
-            "default": false
           }
         },
         "type": "object",
@@ -3238,21 +3012,6 @@
           },
           "exif": {
             "$ref": "#/components/schemas/Exif"
-          },
-          "originalDownloadUrl": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Originaldownloadurl",
-            "description": "원본 다운로드 API 경로. 게시물이 다운로드를 허용하지 않으면 null",
-            "examples": [
-              "/api/photos/10/original"
-            ]
           }
         },
         "type": "object",
@@ -3263,8 +3022,7 @@
           "thumbUrl",
           "previewUrl",
           "dziUrl",
-          "exif",
-          "originalDownloadUrl"
+          "exif"
         ],
         "title": "PublicPhoto"
       },
@@ -3317,10 +3075,6 @@
             "format": "date-time",
             "title": "Publishedat"
           },
-          "allowOriginalDownload": {
-            "type": "boolean",
-            "title": "Alloworiginaldownload"
-          },
           "photos": {
             "items": {
               "$ref": "#/components/schemas/PublicPhoto"
@@ -3339,7 +3093,6 @@
           "categoryName",
           "viewCount",
           "publishedAt",
-          "allowOriginalDownload",
           "photos"
         ],
         "title": "PublicPostDetail"

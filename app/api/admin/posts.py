@@ -45,7 +45,6 @@ def _post_fields(row: service.PostRow) -> dict[str, object]:
         "category_id": p.category_id,
         "title": p.title,
         "status": p.status,
-        "allow_original_download": p.allow_original_download,
         "cover_photo_id": p.cover_photo_id,
         "view_count": p.view_count,
         "published_at": p.published_at,
@@ -59,7 +58,6 @@ def _fields(body: PostIn) -> service.PostFields:
         category_id=body.category_id,
         title=body.title,
         body=body.body,
-        allow_original_download=body.allow_original_download,
     )
 
 

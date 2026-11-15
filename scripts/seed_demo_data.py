@@ -4,7 +4,6 @@
     uv run python scripts/seed_demo_data.py --reset   # 데모 게시물 삭제 후 다시 넣기
 
 - 데모 게시물은 제목이 "[데모] "로 시작한다. --reset은 이 게시물만 지운다.
-- 원본 다운로드 확인용으로 각 사진의 원본 자리에 미리보기 이미지를 복사해 둔다.
 """
 
 import argparse
@@ -18,8 +17,6 @@ from sqlalchemy import delete, select  # noqa: E402
 from app.config import Environment, get_settings  # noqa: E402
 from app.db import create_db_engine, create_session_factory, session_scope  # noqa: E402
 from app.models import Category, Photo, PhotoStatus, Post, PostStatus  # noqa: E402
-from app.services.uploads import original_key  # noqa: E402
-from app.storage.s3 import S3Storage  # noqa: E402
 from scripts.demo_dataset import CATEGORIES, IMAGE_SIZES, MOCK_PREFIX, demo_posts  # noqa: E402
 
 DEMO_PREFIX = "[데모] "
@@ -33,7 +30,6 @@ def main() -> int:
     settings = get_settings()
     if settings.env is Environment.PROD:
         sys.exit("운영 환경에서는 실행할 수 없습니다")
-    storage = S3Storage(settings)
     factory = create_session_factory(create_db_engine(settings))
 
     with session_scope(factory) as s:
@@ -43,7 +39,6 @@ def main() -> int:
             return 0
         if args.reset:
             s.execute(delete(Post).where(Post.title.startswith(DEMO_PREFIX)))
-            storage.delete_prefix(storage.originals_bucket, "originals/demo/")
 
         cat_ids: dict[int, int] = {}
         for mock_id, name in CATEGORIES:
@@ -61,7 +56,6 @@ def main() -> int:
                 title=DEMO_PREFIX + demo.title,
                 body=demo.body,
                 status=PostStatus.PUBLISHED,
-                allow_original_download=demo.allow_original_download,
                 view_count=demo.view_count,
                 published_at=demo.published_at,
             )
@@ -87,16 +81,7 @@ def main() -> int:
                 )
                 s.add(photo)
                 s.flush()
-                photo.original_key = original_key(0, photo.id, "webp").replace(
-                    "originals/0/", "originals/demo/"
-                )
-                storage.client.copy_object(
-                    Bucket=storage.originals_bucket,
-                    Key=photo.original_key,
-                    CopySource={"Bucket": storage.derived_bucket, "Key": base + "preview.webp"},
-                )
-                size = storage.head_object(storage.originals_bucket, photo.original_key)
-                photo.size_bytes = size or 1
+                photo.original_key = f"originals/demo/{photo.id}.webp"  # 데모 사진은 원본 파일이 없다
                 if order == 0:
                     post.cover_photo_id = photo.id
                 photo_count += 1

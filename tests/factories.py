@@ -47,7 +47,6 @@ def insert_post(
     body: str = "",
     status: PostStatus = PostStatus.PUBLISHED,
     views: int = 0,
-    allow_download: bool = False,
     published_days_ago: int = 0,
 ) -> int:
     with Session(engine) as s:
@@ -57,7 +56,6 @@ def insert_post(
             body=body,
             status=status,
             view_count=views,
-            allow_original_download=allow_download,
             published_at=datetime.now(UTC) - timedelta(days=published_days_ago)
             if status is not PostStatus.DRAFT
             else None,

@@ -27,7 +27,6 @@ class PostFields:
     category_id: int
     title: str
     body: str
-    allow_original_download: bool
 
 
 _ORDER: dict[PostSort, tuple[ColumnElement[Any], ...]] = {  # Any: 정렬 컬럼 타입이 섞여 있음
@@ -104,7 +103,6 @@ def create_post(session: Session, fields: PostFields) -> PostRow:
             category_id=fields.category_id,
             title=fields.title,
             body=fields.body,
-            allow_original_download=fields.allow_original_download,
             status=PostStatus.DRAFT,
         )
         session.add(post)
@@ -120,7 +118,6 @@ def update_post(session: Session, post_id: int, fields: PostFields) -> PostRow:
         post.category_id = fields.category_id
         post.title = fields.title
         post.body = fields.body
-        post.allow_original_download = fields.allow_original_download
     session.expire_all()
     return get_post(session, post_id)
 

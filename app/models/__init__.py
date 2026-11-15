@@ -5,13 +5,12 @@ from app.models.base import Base
 from app.models.content import Category, Photo, Post
 from app.models.enums import JobStatus, PhotoStatus, PostStatus
 from app.models.jobs import PhotoJob
-from app.models.stats import DownloadLog, PostViewDaily, ViewDedupe
+from app.models.stats import PostViewDaily, ViewDedupe
 
 __all__ = [
     "AdminUser",
     "Base",
     "Category",
-    "DownloadLog",
     "JobStatus",
     "LoginAttempt",
     "Photo",

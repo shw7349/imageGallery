@@ -37,7 +37,6 @@ def test_post_defaults(db: Session) -> None:
     db.refresh(post)
     assert post.status is PostStatus.DRAFT
     assert post.view_count == 0
-    assert post.allow_original_download is False
     assert post.created_at.tzinfo is not None
     assert post.published_at is None
 

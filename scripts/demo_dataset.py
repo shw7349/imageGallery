@@ -50,7 +50,6 @@ class _Post:
     category_id: int
     published_at: datetime
     view_count: int
-    allow_original_download: bool
     photos: tuple[_Photo, ...]
 
 
@@ -89,7 +88,6 @@ def _dataset() -> tuple[_Post, ...]:
                 category_id=CATEGORIES[i % len(CATEGORIES)][0],
                 published_at=_BASE_TIME - timedelta(days=i * 2),
                 view_count=rng.randint(0, 5000),
-                allow_original_download=i % 3 == 0,
                 photos=tuple(photos),
             )
         )

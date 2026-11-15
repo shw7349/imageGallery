@@ -88,7 +88,7 @@ def test_cover_photo_is_used_when_ready(
 
 
 def test_detail(client: TestClient, engine: Engine, cat: int, settings: Settings) -> None:
-    post = insert_post(engine, cat, title="상세", body="본문", allow_download=True)
+    post = insert_post(engine, cat, title="상세", body="본문")
     second = insert_photo(engine, post, sort_order=1)
     insert_photo(engine, post, status=PhotoStatus.FAILED, sort_order=2)
     first = insert_photo(engine, post, sort_order=0)
@@ -106,16 +106,8 @@ def test_detail(client: TestClient, engine: Engine, cat: int, settings: Settings
     assert (photo["width"], photo["height"]) == (6000, 4000)
     assert photo["exif"]["cameraMake"] == "SONY" and photo["exif"]["iso"] == 100
     assert photo["exif"]["takenAt"].startswith("2026-11-01T06:12:30")
-    assert photo["originalDownloadUrl"] == f"/api/photos/{first}/original"
+    assert "originalDownloadUrl" not in photo and "allowOriginalDownload" not in body  # 다운로드 기능 없음
     assert "originals/" not in res.text  # 원본 키 비노출
-
-
-def test_download_url_null_when_not_allowed(client: TestClient, engine: Engine, cat: int) -> None:
-    post = insert_post(engine, cat, allow_download=False)
-    insert_photo(engine, post)
-    detail = client.get(f"{POSTS}/{post}").json()
-    assert detail["allowOriginalDownload"] is False
-    assert detail["photos"][0]["originalDownloadUrl"] is None
 
 
 # ── 목록 기능 ────────────────────────────────────────────

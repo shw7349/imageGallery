@@ -9,14 +9,11 @@ from app.api.deps import AppSettings, DbSession
 from app.api.errors import problem_responses
 from app.schemas.stats import (
     DailyViews,
-    DownloadsStatsOut,
-    PhotoDownloads,
     StatsPeriod,
     TopPost,
     TopPostsOut,
     ViewsStatsOut,
 )
-from app.services import downloads as downloads_service
 from app.services import views as views_service
 
 router = APIRouter(prefix="/stats", tags=["admin-stats"])
@@ -61,30 +58,4 @@ def top(
     rows = views_service.top_posts(db, int(days), views_service.today_in(settings.stats_timezone))
     return TopPostsOut(
         days=int(days), items=[TopPost(post_id=r.post_id, title=r.title, views=r.views) for r in rows]
-    )
-
-
-@router.get(
-    "/downloads",
-    response_model=DownloadsStatsOut,
-    summary="원본 다운로드 상위 사진",
-    responses=problem_responses(401, 422),
-)
-def downloads(
-    db: DbSession,
-    days: Annotated[StatsPeriod, Query(description="최근 며칠")] = StatsPeriod.MONTH,
-) -> DownloadsStatsOut:
-    rows = downloads_service.top_downloads(db, int(days))
-    return DownloadsStatsOut(
-        days=int(days),
-        items=[
-            PhotoDownloads(
-                photo_id=r.photo_id,
-                post_id=r.post_id,
-                post_title=r.post_title,
-                original_filename=r.original_filename,
-                downloads=r.downloads,
-            )
-            for r in rows
-        ],
     )

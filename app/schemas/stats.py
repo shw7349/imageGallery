@@ -35,16 +35,3 @@ class TopPost(CamelModel):
 class TopPostsOut(CamelModel):
     days: int = Field(examples=[7])
     items: list[TopPost] = Field(description="기간 내 조회수 상위 20개")
-
-
-class PhotoDownloads(CamelModel):
-    photo_id: int = Field(examples=[10])
-    post_id: int = Field(examples=[1])
-    post_title: str = Field(examples=["제주 오름 일출"])
-    original_filename: str = Field(examples=["DSC01234.ARW"])
-    downloads: int = Field(examples=[5])
-
-
-class DownloadsStatsOut(CamelModel):
-    days: int = Field(examples=[30])
-    items: list[PhotoDownloads] = Field(description="기간 내 원본 다운로드 상위 50개 사진")

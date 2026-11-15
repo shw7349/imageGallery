@@ -46,12 +46,10 @@ CONTRACT: set[tuple[str, str]] = {
     ("POST", "/api/admin/photos/{photo_id}/retry"),
     ("GET", "/api/admin/stats/views"),
     ("GET", "/api/admin/stats/top"),
-    ("GET", "/api/admin/stats/downloads"),
     ("GET", "/api/categories"),
     ("GET", "/api/posts"),
     ("GET", "/api/posts/{post_id}"),
     ("POST", "/api/posts/{post_id}/views"),
-    ("GET", "/api/photos/{photo_id}/original"),
     ("GET", "/healthz"),
 }
 
@@ -115,7 +113,6 @@ ADMIN_ENDPOINTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/admin/photos/1/retry", None),
     ("GET", "/api/admin/stats/views?from=2026-11-01&to=2026-11-30", None),
     ("GET", "/api/admin/stats/top?days=7", None),
-    ("GET", "/api/admin/stats/downloads?days=30", None),
 ]
 
 

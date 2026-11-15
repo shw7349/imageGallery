@@ -58,10 +58,6 @@ class PublicPhoto(CamelModel):
         examples=["https://cdn.example.com/derived/1/10/photo.dzi"],
     )
     exif: Exif
-    original_download_url: str | None = Field(
-        description="원본 다운로드 API 경로. 게시물이 다운로드를 허용하지 않으면 null",
-        examples=["/api/photos/10/original"],
-    )
 
 
 class PublicPostDetail(CamelModel):
@@ -72,5 +68,4 @@ class PublicPostDetail(CamelModel):
     category_name: str = Field(examples=["풍경"])
     view_count: int = Field(examples=[128])
     published_at: datetime
-    allow_original_download: bool
     photos: list[PublicPhoto] = Field(description="READY 사진만, 관리자가 정한 순서")

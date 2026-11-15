@@ -22,7 +22,6 @@ class PostIn(CamelModel):
     category_id: int = Field(ge=1, examples=[1])
     title: Title = Field(examples=["제주 오름 일출"])
     body: str = Field(default="", max_length=20_000, examples=["새벽 5시, 새별오름에서."])
-    allow_original_download: bool = Field(default=False, description="방문자의 원본 다운로드 허용")
 
 
 class PostStatusIn(CamelModel):
@@ -67,7 +66,6 @@ class AdminPostSummary(CamelModel):
     category_name: str = Field(examples=["풍경"])
     title: str = Field(examples=["제주 오름 일출"])
     status: PostStatus = Field(examples=["DRAFT"])
-    allow_original_download: bool
     cover_photo_id: int | None = Field(examples=[10])
     photo_count: int = Field(examples=[3])
     view_count: int = Field(examples=[0])

@@ -60,12 +60,6 @@ class Settings(BaseSettings):
     stats_timezone: str = "Asia/Seoul"
     views_rate_per_minute: int = Field(default=60, ge=1)
     view_dedupe_retention_days: int = Field(default=30, ge=2)
-    # 원본 다운로드(11단계): 방문자(vid)당 1시간 최대 횟수
-    downloads_per_hour: int = Field(default=20, ge=1)
-    # 쿠키를 지우면 방문자 제한이 초기화되므로 IP 기준 제한과 사이트 전체 하루 상한을 함께 둔다.
-    # 하루 상한은 전송 요금 폭주를 막는 차단기다(300MB × 500회 = 150GB).
-    downloads_per_hour_per_ip: int = Field(default=40, ge=1)
-    downloads_per_day_total: int = Field(default=500, ge=1)
 
     # 요청 본문 최대 크기. 사진은 S3로 직접 올리므로 API가 받는 본문은 JSON뿐이다
     # (가장 큰 정상 요청: 파트 1만 개의 업로드 완료 ≈ 700KB).

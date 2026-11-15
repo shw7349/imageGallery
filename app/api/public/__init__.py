@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.public import categories, photos, posts, views
+from app.api.public import categories, posts, views
 
 
 def build_public_router() -> APIRouter:
@@ -10,5 +10,4 @@ def build_public_router() -> APIRouter:
     root.include_router(categories.router)
     root.include_router(posts.router)
     root.include_router(views.router)
-    root.include_router(photos.router)
     return root
