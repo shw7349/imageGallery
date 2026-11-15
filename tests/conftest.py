@@ -8,6 +8,7 @@
 import os
 import secrets
 from collections.abc import Iterator
+from dataclasses import dataclass
 
 import pytest
 from alembic import command
@@ -21,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Environment, Settings
 from app.main import create_app
+from app.services import auth as auth_service
 
 
 def _test_database_url(base: Settings) -> str:
@@ -77,10 +79,57 @@ def app(settings: Settings) -> FastAPI:
     return create_app(settings)
 
 
+def _truncate_all(engine: Engine) -> None:
+    from app.models import Base
+
+    names = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    with engine.begin() as conn:
+        conn.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
+
+
 @pytest.fixture
-def client(app: FastAPI) -> Iterator[TestClient]:
-    with TestClient(app) as c:
+def client(app: FastAPI, engine: Engine) -> Iterator[TestClient]:
+    """앱은 자체 커넥션으로 커밋하므로 테스트가 끝나면 모든 테이블을 비운다.
+
+    세션 쿠키가 Secure라서 https 기준 URL을 쓴다.
+    """
+    with TestClient(app, base_url="https://testserver") as c:
         yield c
+    _truncate_all(engine)
+
+
+@dataclass(frozen=True)
+class AdminCredentials:
+    username: str
+    password: str
+
+
+@pytest.fixture
+def admin_credentials(client: TestClient, engine: Engine) -> AdminCredentials:
+    creds = AdminCredentials(username="admin", password=secrets.token_urlsafe(16))
+    with Session(engine) as session:
+        auth_service.create_admin(session, creds.username, creds.password)
+    return creds
+
+
+@dataclass(frozen=True)
+class AdminClient:
+    http: TestClient
+    csrf: str
+
+    def headers(self) -> dict[str, str]:
+        return {"X-CSRF-Token": self.csrf}
+
+
+@pytest.fixture
+def admin(client: TestClient, admin_credentials: AdminCredentials) -> AdminClient:
+    """로그인된 관리자 클라이언트. 변경 요청에는 admin.headers()를 붙인다."""
+    res = client.post(
+        "/api/admin/auth/login",
+        json={"username": admin_credentials.username, "password": admin_credentials.password},
+    )
+    assert res.status_code == 200, res.text
+    return AdminClient(http=client, csrf=res.json()["csrfToken"])
 
 
 @pytest.fixture(scope="session")

@@ -6,14 +6,18 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health
+from app.api.admin import build_admin_router
+from app.api.errors import register_error_handlers
 from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
 from app.logging import request_id_var, setup_logging
+from app.schemas.problem import Problem
 
 logger = logging.getLogger("app.request")
 
@@ -27,6 +31,22 @@ def _request_id_from(request: Request) -> str:
     if incoming and _VALID_REQUEST_ID.match(incoming):
         return incoming
     return uuid.uuid4().hex
+
+
+def _register_problem_schema(app: FastAPI) -> None:
+    """problem_responses()가 참조하는 #/components/schemas/Problem을 OpenAPI에 추가한다."""
+    original = app.openapi
+
+    def openapi() -> dict[str, Any]:  # Any: OpenAPI 문서(JSON)
+        if app.openapi_schema:
+            return app.openapi_schema
+        schema = original()
+        components = schema.setdefault("components", {}).setdefault("schemas", {})
+        components["Problem"] = Problem.model_json_schema(ref_template="#/components/schemas/{model}")
+        app.openapi_schema = schema
+        return schema
+
+    app.openapi = openapi  # type: ignore[method-assign]  # FastAPI 공식 커스터마이즈 방식
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -55,6 +75,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             response = await call_next(request)
             response.headers[REQUEST_ID_HEADER] = request_id
+            if request.url.path.startswith("/api/admin"):
+                response.headers["Cache-Control"] = "no-store"
             # 쿼리스트링은 남기지 않는다(서명·토큰이 포함될 수 있음).
             logger.info(
                 "request",
@@ -79,5 +101,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         expose_headers=[REQUEST_ID_HEADER],
     )
 
+    register_error_handlers(app)
+    _register_problem_schema(app)
     app.include_router(health.router)
+    app.include_router(build_admin_router())
     return app

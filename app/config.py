@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # 보안
     session_secret: SecretStr = Field(min_length=32)
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    session_max_age_seconds: int = Field(default=12 * 3600, ge=60)
+    login_max_failures: int = Field(default=5, ge=1)
+    login_lock_seconds: int = Field(default=15 * 60, ge=1)
 
     # 워커
     worker_concurrency: int = Field(default=1, ge=1, le=8)

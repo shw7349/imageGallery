@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Identity, Index, String, func
+from sqlalchemy import BigInteger, Boolean, Identity, Index, Integer, String, func
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,6 +13,8 @@ class AdminUser(Base):
     id: Mapped[int] = mapped_column(Identity(), primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    # 세션 쿠키에 함께 서명된다. 로그아웃·비밀번호 재설정 시 +1 → 기존 쿠키 전부 무효.
+    session_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(utc_timestamp(), server_default=func.now())
 
 
