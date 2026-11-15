@@ -18,3 +18,4 @@ htmlcov/
 
 # 문서(.md)는 로컬에만 둔다(git에 올리지 않음)
 *.md
+!/README.md
