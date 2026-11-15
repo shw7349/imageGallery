@@ -1594,16 +1594,6 @@
               }
             }
           },
-          "501": {
-            "description": "아직 구현되지 않음",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
           "422": {
             "description": "입력값 검증 실패",
             "content": {

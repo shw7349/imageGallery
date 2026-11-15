@@ -53,8 +53,15 @@ class Settings(BaseSettings):
     # 운영(ENV=prod)에서는 켤 수 없다.
     mock_api: bool = False
 
-    # 워커
+    # 워커·작업 큐 (07단계)
     worker_concurrency: int = Field(default=1, ge=1, le=8)
+    worker_poll_seconds: float = Field(default=2.0, gt=0)
+    worker_idle_max_seconds: float = Field(default=30.0, gt=0, description="작업이 없을 때 최대 대기")
+    worker_reclaim_interval_seconds: float = Field(default=60.0, gt=0)
+    # 실패 후 재시도 대기(1분, 5분, 15분). 길이 = 최대 재시도 횟수. 넘으면 FAILED.
+    job_retry_delays_seconds: Annotated[list[int], NoDecode] = Field(default_factory=lambda: [60, 300, 900])
+    # RUNNING인데 이 시간 동안 끝나지 않으면 워커가 죽은 것으로 보고 회수한다.
+    job_stale_after_seconds: int = Field(default=30 * 60, ge=1)
     # 원본 다운로드·변환용 로컬 디렉터리. 300MB 원본 + 파생물이 들어갈 여유가 필요하다.
     work_dir: Path
 
@@ -71,6 +78,14 @@ class Settings(BaseSettings):
         if self.mock_api and self.env is Environment.PROD:
             raise ValueError("MOCK_API는 운영(ENV=prod)에서 켤 수 없습니다")
         return self
+
+    @field_validator("job_retry_delays_seconds", mode="before")
+    @classmethod
+    def _split_delays(cls, value: object) -> object:
+        """`JOB_RETRY_DELAYS_SECONDS=60,300,900` 형식 허용."""
+        if isinstance(value, str):
+            return [int(v) for v in value.split(",") if v.strip()]
+        return value
 
     @field_validator("s3_endpoint_url", mode="before")
     @classmethod

@@ -4,7 +4,6 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import AppSettings, DbSession, Storage
 from app.api.errors import problem_responses
-from app.errors import NotImplementedYet
 from app.schemas.photos import (
     CompleteIn,
     PartUrl,
@@ -16,6 +15,7 @@ from app.schemas.photos import (
     UploadStartOut,
 )
 from app.schemas.posts import AdminPhotoOut
+from app.services import processing
 from app.services import uploads as service
 
 router = APIRouter(tags=["admin-photos"])
@@ -117,7 +117,7 @@ def delete_photo(photo_id: int, db: DbSession, storage: Storage) -> Response:
     response_model=AdminPhotoOut,
     summary="실패한 사진 재처리",
     description="FAILED 사진의 변환 작업을 다시 등록한다. FAILED가 아니면 409.",
-    responses=problem_responses(401, 403, 404, 409, 501),
+    responses=problem_responses(401, 403, 404, 409),
 )
-def retry_photo(photo_id: int) -> AdminPhotoOut:
-    raise NotImplementedYet("07단계에서 구현")
+def retry_photo(photo_id: int, db: DbSession) -> AdminPhotoOut:
+    return AdminPhotoOut.model_validate(processing.retry_photo(db, photo_id))

@@ -27,7 +27,7 @@ class PhotoJob(TimestampMixin, Base):
             "uq_photo_job_active_photo",
             "photo_id",
             unique=True,
-            postgresql_where=text("status IN ('PENDING', 'RUNNING')"),
+            postgresql_where=text("status IN ('PENDING', 'RUNNING')"),  # jobs/queue.py와 같아야 함
         ),
         CheckConstraint("attempts >= 0", name="attempts_non_negative"),
     )
