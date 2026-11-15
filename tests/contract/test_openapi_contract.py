@@ -72,7 +72,10 @@ def test_openapi_snapshot_is_up_to_date(app: FastAPI) -> None:
 
 
 def test_api_md_is_up_to_date(app: FastAPI) -> None:
-    committed = (ROOT / "docs/api.md").read_text(encoding="utf-8")
+    api_md = ROOT / "docs/api.md"
+    if not api_md.exists():  # .md 문서는 git에 올리지 않는다(로컬에서 make openapi로 생성)
+        pytest.skip("docs/api.md 없음")
+    committed = api_md.read_text(encoding="utf-8")
     assert gen_api_md.render(app.openapi()) == committed, "`make openapi`로 docs/api.md를 갱신하세요"
 
 

@@ -15,3 +15,6 @@ htmlcov/
 
 # OS
 .DS_Store
+
+# 문서(.md)는 로컬에만 둔다(git에 올리지 않음)
+*.md

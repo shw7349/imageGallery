@@ -132,7 +132,9 @@ def _operation(method: str, path: str, op: Schema) -> list[str]:
 
 
 def render(openapi: Schema) -> str:
-    lines = [GUIDE.read_text(encoding="utf-8").rstrip(), "", "## 9. 엔드포인트", ""]
+    # 설명(api-guide.md)은 git에 올리지 않는 로컬 문서다. 없으면 표만 만든다.
+    intro = GUIDE.read_text(encoding="utf-8").rstrip() if GUIDE.exists() else "# Gallery API 명세"
+    lines = [intro, "", "## 9. 엔드포인트", ""]
 
     by_tag: dict[str, list[tuple[str, str, Schema]]] = {}
     for path, item in openapi["paths"].items():
