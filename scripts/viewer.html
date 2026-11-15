@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>딥줌 뷰어 (로컬 확인용)</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f4f4f5; --fg: #18181b; --panel: #ffffff; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #111113; --fg: #e4e4e7; --panel: #1c1c1f; } }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+    header { display: flex; gap: 8px; align-items: center; padding: 8px 16px; background: var(--panel); }
+    input { flex: 1; min-width: 0; padding: 6px 8px; font: inherit; }
+    #viewer { position: absolute; top: 48px; bottom: 0; left: 0; right: 0; }
+  </style>
+</head>
+<body>
+  <!--
+    scripts/bench_pipeline.py --keep OUT 결과나 CDN(로컬 MinIO)의 photo.dzi를 연다.
+      예: viewer.html?dzi=photo.dzi
+          viewer.html?dzi=http://localhost:9000/gallery-derived/mock/3/photo.dzi
+  -->
+  <header>
+    <strong>DZI</strong>
+    <input id="src" placeholder="photo.dzi URL" aria-label="DZI 주소">
+    <button id="open" type="button">열기</button>
+  </header>
+  <div id="viewer"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const input = document.getElementById("src");
+    input.value = params.get("dzi") || "photo.dzi";
+    const viewer = OpenSeadragon({
+      id: "viewer",
+      prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+      showNavigator: true,
+      maxZoomPixelRatio: 2,
+      tileSources: input.value,
+    });
+    document.getElementById("open").addEventListener("click", () => viewer.open(input.value));
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "CORSRules": [
+    {
+      "ID": "admin-direct-multipart-upload",
+      "AllowedOrigins": ["https://admin.example.com"],
+      "AllowedMethods": ["PUT"],
+      "AllowedHeaders": ["*"],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}
