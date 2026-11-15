@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Response
+from fastapi.responses import RedirectResponse
 
+from app.api.deps import AppSettings
 from app.api.errors import problem_responses
-from app.errors import NotImplementedYet
+from app.api.mock import MOCK_HEADER, use_mock
+from app.mock import data as mock
 
 router = APIRouter()
 
@@ -21,5 +24,7 @@ router = APIRouter()
         **problem_responses(403, 404, 429, 501),
     },
 )
-def download_original(photo_id: int) -> Response:
-    raise NotImplementedYet("11단계에서 구현")
+def download_original(photo_id: int, settings: AppSettings, response: Response) -> Response:
+    use_mock(settings, response, "11")
+    url = mock.original_download_url(settings.cdn_base_url, photo_id)
+    return RedirectResponse(url, status_code=302, headers={MOCK_HEADER: "true"})

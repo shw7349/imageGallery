@@ -1,9 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 
+from app.api.deps import AppSettings
 from app.api.errors import problem_responses
-from app.errors import NotImplementedYet
+from app.api.mock import use_mock
+from app.mock import data as mock
 from app.schemas.pagination import MAX_PAGE_SIZE, Page
 from app.schemas.public import PublicPostDetail, PublicPostSummary, PublicSort
 
@@ -18,13 +20,16 @@ router = APIRouter()
     responses=problem_responses(422, 501),
 )
 def list_posts(
+    settings: AppSettings,
+    response: Response,
     category: Annotated[int | None, Query(ge=1, description="카테고리 ID")] = None,
     q: Annotated[str | None, Query(min_length=1, max_length=100, description="제목·본문 검색어")] = None,
     page: Annotated[int, Query(ge=1, le=100_000)] = 1,
     size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = 20,
     sort: PublicSort = PublicSort.PUBLISHED,
 ) -> Page[PublicPostSummary]:
-    raise NotImplementedYet("09단계에서 구현")
+    use_mock(settings, response, "09")
+    return mock.list_posts(settings.cdn_base_url, category=category, q=q, page=page, size=size, sort=sort)
 
 
 @router.get(
@@ -34,5 +39,6 @@ def list_posts(
     description="비공개·없는 게시물은 똑같이 404.",
     responses=problem_responses(404, 501),
 )
-def get_post(post_id: int) -> PublicPostDetail:
-    raise NotImplementedYet("09단계에서 구현")
+def get_post(post_id: int, settings: AppSettings, response: Response) -> PublicPostDetail:
+    use_mock(settings, response, "09")
+    return mock.post_detail(settings.cdn_base_url, post_id)

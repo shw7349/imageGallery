@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Response, status
 
+from app.api.deps import AppSettings
 from app.api.errors import problem_responses
-from app.errors import NotImplementedYet
+from app.api.mock import MOCK_HEADER, use_mock
+from app.mock import data as mock
 
 router = APIRouter()
 
@@ -14,5 +16,7 @@ router = APIRouter()
     "중복 여부와 관계없이 항상 204를 돌려준다.",
     responses=problem_responses(404, 429, 501),
 )
-def record_view(post_id: int) -> Response:
-    raise NotImplementedYet("10단계에서 구현")
+def record_view(post_id: int, settings: AppSettings, response: Response) -> Response:
+    use_mock(settings, response, "10")
+    mock.record_view(post_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT, headers={MOCK_HEADER: "true"})

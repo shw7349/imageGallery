@@ -1,5 +1,6 @@
 """로컬 MinIO에 개발·테스트용 버킷을 만든다 (`make up`에서 호출). 운영 버킷은 Terraform이 만든다."""
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -42,6 +43,23 @@ def main() -> int:
         else:
             s3.create_bucket(Bucket=name)
             print(f"created {name}")
+
+    # 로컬에서 CloudFront 대신: derived 버킷은 익명 읽기(GET)만 허용한다. originals는 비공개 유지.
+    # 운영은 퍼블릭 차단 + CloudFront OAC(13단계 Terraform).
+    for bucket in (settings.s3_derived_bucket, "gallery-test-derived"):
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": ["*"]},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{bucket}/*"],
+                }
+            ],
+        }
+        s3.put_bucket_policy(Bucket=bucket, Policy=json.dumps(policy))
+        print(f"public-read {bucket} (로컬 CDN 대체)")
     return 0
 
 

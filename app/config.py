@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     upload_max_bytes: int = Field(default=1024**3, ge=1)
     upload_part_size: int = Field(default=16 * 1024**2, ge=5 * 1024**2)
 
+    # 프론트 개발용 목업 모드: 아직 구현 전인 엔드포인트가 계약대로 가짜 데이터를 돌려준다(X-Mock 헤더).
+    # 운영(ENV=prod)에서는 켤 수 없다.
+    mock_api: bool = False
+
     # 워커
     worker_concurrency: int = Field(default=1, ge=1, le=8)
     # 원본 다운로드·변환용 로컬 디렉터리. 300MB 원본 + 파생물이 들어갈 여유가 필요하다.
@@ -61,6 +65,12 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _no_mock_in_prod(self) -> "Settings":
+        if self.mock_api and self.env is Environment.PROD:
+            raise ValueError("MOCK_API는 운영(ENV=prod)에서 켤 수 없습니다")
+        return self
 
     @field_validator("s3_endpoint_url", mode="before")
     @classmethod
