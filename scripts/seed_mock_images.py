@@ -50,6 +50,7 @@ def build(index: int, width: int, height: int, out: Path) -> None:
     img.thumbnail_image(600, height=600).webpsave(str(out / "thumb.webp"), Q=80, strip=True)
     img.thumbnail_image(3840, height=3840).webpsave(str(out / "preview.webp"), Q=85, strip=True)
     img.dzsave(str(out / "photo"), tile_size=256, overlap=1, suffix=".webp[Q=80]", strip=True)
+    (out / "photo_files" / "vips-properties.xml").unlink(missing_ok=True)  # 공개 CDN에 올리지 않는다
 
 
 def main() -> int:
@@ -59,6 +60,7 @@ def main() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             build(i, w, h, out)
+            storage.delete_prefix(storage.derived_bucket, f"{MOCK_PREFIX}/{i}/")
             n = storage.upload_directory(
                 out,
                 storage.derived_bucket,

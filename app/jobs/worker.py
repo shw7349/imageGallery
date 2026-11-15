@@ -17,9 +17,11 @@ from types import FrameType
 
 from app.config import Settings, get_settings
 from app.db import SessionFactory, create_db_engine, create_session_factory, session_scope
+from app.imaging import derivatives
 from app.jobs import queue
-from app.jobs.processing import PhotoProcessor, make_dummy_processor
+from app.jobs.processing import PhotoProcessor, make_processor
 from app.logging import setup_logging
+from app.storage.s3 import S3Storage
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +125,8 @@ def main() -> int:
     setup_logging(settings.log_level)
     engine = create_db_engine(settings)
     factory = create_session_factory(engine)
-    worker = Worker(factory, settings, make_dummy_processor(factory))
+    derivatives.configure(settings.vips_concurrency, settings.vips_cache_max_mb)
+    worker = Worker(factory, settings, make_processor(factory, S3Storage(settings), settings))
 
     def handle(signum: int, _frame: FrameType | None) -> None:
         logger.info("signal received", extra={"signal": signal.Signals(signum).name})

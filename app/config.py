@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     job_stale_after_seconds: int = Field(default=30 * 60, ge=1)
     # 원본 다운로드·변환용 로컬 디렉터리. 300MB 원본 + 파생물이 들어갈 여유가 필요하다.
     work_dir: Path
+    # libvips 제한(08단계): 스레드 수와 연산 캐시. 워커 메모리 상한을 예측 가능하게 한다.
+    vips_concurrency: int = Field(default=2, ge=1, le=16)
+    vips_cache_max_mb: int = Field(default=100, ge=0)
 
     @field_validator("cors_origins", mode="before")
     @classmethod

@@ -6,7 +6,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import timedelta
 
 import pytest
@@ -16,12 +16,21 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.db import SessionFactory, create_session_factory, session_scope
 from app.jobs import queue
-from app.jobs.processing import make_dummy_processor
 from app.jobs.worker import Worker
 from app.models import Category, JobStatus, Photo, PhotoJob, PhotoStatus, Post
 from tests.conftest import _truncate_all
 
 POLICY = queue.RetryPolicy.from_seconds([60, 300, 900])
+
+
+def make_dummy_processor(factory: SessionFactory) -> Callable[[int], None]:
+    """워커 동작만 검사하기 위한 처리기: 사진을 READY로 바꾼다(이미지 처리는 tests/imaging에서)."""
+
+    def process(photo_id: int) -> None:
+        with session_scope(factory) as s:
+            s.execute(update(Photo).where(Photo.id == photo_id).values(status=PhotoStatus.READY))
+
+    return process
 
 
 @pytest.fixture

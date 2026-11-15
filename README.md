@@ -52,6 +52,15 @@ uv run python scripts/upload_test.py /tmp/big.tif --post-id 1 --fail-after-parts
 uv run python scripts/upload_test.py /tmp/big.tif --post-id 1                        # 이어 올리기
 ```
 
+## 이미지 처리 확인
+
+```bash
+make worker                                                   # 업로드 완료된 사진을 처리 (READY까지)
+uv run python scripts/bench_pipeline.py /tmp/big.tif --keep /tmp/out   # 처리 시간·최대 메모리 측정
+cp scripts/viewer.html /tmp/out && cd /tmp/out && python3 -m http.server 8090
+# → http://127.0.0.1:8090/viewer.html?dzi=photo.dzi  (딥줌 확대 확인)
+```
+
 ## 참고
 
 - macOS 로컬은 `pyvips-binary`(libvips 내장, 개발 의존성)를 쓰고, Docker 이미지는 Debian `libvips42`를 쓴다.
