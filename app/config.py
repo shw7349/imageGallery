@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -54,10 +54,8 @@ class Settings(BaseSettings):
     stats_timezone: str = "Asia/Seoul"
     views_rate_per_minute: int = Field(default=60, ge=1)
     view_dedupe_retention_days: int = Field(default=30, ge=2)
-
-    # 프론트 개발용 목업 모드: 아직 구현 전인 엔드포인트가 계약대로 가짜 데이터를 돌려준다(X-Mock 헤더).
-    # 운영(ENV=prod)에서는 켤 수 없다.
-    mock_api: bool = False
+    # 원본 다운로드(11단계): 방문자(vid)당 1시간 최대 횟수
+    downloads_per_hour: int = Field(default=20, ge=1)
 
     # 워커·작업 큐 (07단계)
     worker_concurrency: int = Field(default=1, ge=1, le=8)
@@ -89,20 +87,6 @@ class Settings(BaseSettings):
             ZoneInfo(value)
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise ValueError(f"알 수 없는 시간대: {value}") from exc
-        return value
-
-    @model_validator(mode="after")
-    def _no_mock_in_prod(self) -> "Settings":
-        if self.mock_api and self.env is Environment.PROD:
-            raise ValueError("MOCK_API는 운영(ENV=prod)에서 켤 수 없습니다")
-        return self
-
-    @field_validator("job_retry_delays_seconds", mode="before")
-    @classmethod
-    def _split_delays(cls, value: object) -> object:
-        """`JOB_RETRY_DELAYS_SECONDS=60,300,900` 형식 허용."""
-        if isinstance(value, str):
-            return [int(v) for v in value.split(",") if v.strip()]
         return value
 
     @field_validator("s3_endpoint_url", mode="before")

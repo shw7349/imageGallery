@@ -4,7 +4,7 @@
 
 이미지마다 08단계 파이프라인과 같은 형식을 만든다:
   thumb.webp(긴 변 600px), preview.webp(긴 변 3840px), photo.dzi + photo_files/(256px 타일, overlap 1, WebP)
-원본 크기는 app/mock/data.py의 IMAGE_SIZES와 같다(딥줌은 원본의 1/2 크기로 만들어 시간을 줄인다).
+원본 크기는 scripts/demo_dataset.py의 IMAGE_SIZES와 같다(딥줌은 원본의 1/2 크기로 만들어 시간을 줄인다).
 """
 
 import sys
@@ -13,11 +13,11 @@ from pathlib import Path
 
 import pyvips
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # app·scripts 패키지 경로
 
 from app.config import get_settings  # noqa: E402
-from app.mock.data import IMAGE_SIZES, MOCK_PREFIX  # noqa: E402
 from app.storage.s3 import S3Storage  # noqa: E402
+from scripts.demo_dataset import IMAGE_SIZES, MOCK_PREFIX  # noqa: E402
 
 PALETTE = [
     (230, 126, 34), (52, 152, 219), (46, 204, 113), (155, 89, 182), (241, 196, 15), (231, 76, 60),

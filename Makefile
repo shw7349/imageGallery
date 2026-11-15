@@ -5,7 +5,7 @@ SHELL := /bin/bash
 API_PORT ?= 8000
 UV ?= uv
 
-.PHONY: help env up down migrate revision api api-mock mock-images demo-data worker lint fmt typecheck test check openapi docker-build
+.PHONY: help env up down migrate revision api mock-images demo-data worker lint fmt typecheck test check openapi docker-build
 
 help: ## 명령 목록
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -29,9 +29,6 @@ revision: ## 새 마이그레이션 리비전: make revision m="설명"
 
 api: ## API 서버 실행 (리로드)
 	$(UV) run uvicorn --factory app.main:create_app --reload --host 127.0.0.1 --port $(API_PORT) --no-access-log
-
-api-mock: ## 프론트 개발용 목업 모드로 API 실행 (미구현 엔드포인트가 가짜 데이터 반환)
-	MOCK_API=true $(UV) run uvicorn --factory app.main:create_app --reload --host 127.0.0.1 --port $(API_PORT) --no-access-log
 
 mock-images: ## 목업 이미지(썸네일·미리보기·딥줌 타일)를 로컬 MinIO에 생성
 	$(UV) run python scripts/seed_mock_images.py

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import RedirectResponse
 
-from app.api.deps import AppSettings, DbSession
+from app.api.deps import AppSettings, DbSession, Storage
 from app.api.errors import problem_responses
-from app.api.mock import MOCK_HEADER, use_mock
-from app.mock import data as mock
+from app.api.visitor import get_visitor, set_visitor_cookie
+from app.services import downloads as service
 
 router = APIRouter()
 
@@ -21,10 +21,15 @@ router = APIRouter()
             "description": "Location 헤더의 URL로 이동",
             "headers": {"Location": {"schema": {"type": "string"}}},
         },
-        **problem_responses(403, 404, 429, 501),
+        **problem_responses(403, 404, 429, 503),
     },
 )
-def download_original(photo_id: int, db: DbSession, settings: AppSettings, response: Response) -> Response:
-    use_mock(settings, response, "11")
-    url = mock.original_download_url(db, settings.cdn_base_url, photo_id)
-    return RedirectResponse(url, status_code=302, headers={MOCK_HEADER: "true"})
+def download_original(
+    photo_id: int, request: Request, db: DbSession, storage: Storage, settings: AppSettings
+) -> Response:
+    visitor = get_visitor(request, settings)
+    url = service.original_url(db, storage, photo_id, visitor.hash, settings.downloads_per_hour)
+    # 서명된 URL은 캐시되면 안 된다(만료·방문자별 기록)
+    response = RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store"})
+    set_visitor_cookie(response, visitor)
+    return response

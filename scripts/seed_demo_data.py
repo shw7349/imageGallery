@@ -11,16 +11,16 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # app·scripts 패키지 경로
 
 from sqlalchemy import delete, select  # noqa: E402
 
 from app.config import Environment, get_settings  # noqa: E402
 from app.db import create_db_engine, create_session_factory, session_scope  # noqa: E402
-from app.mock.data import CATEGORIES, IMAGE_SIZES, MOCK_PREFIX, demo_posts  # noqa: E402
 from app.models import Category, Photo, PhotoStatus, Post, PostStatus  # noqa: E402
 from app.services.uploads import original_key  # noqa: E402
 from app.storage.s3 import S3Storage  # noqa: E402
+from scripts.demo_dataset import CATEGORIES, IMAGE_SIZES, MOCK_PREFIX, demo_posts  # noqa: E402
 
 DEMO_PREFIX = "[데모] "
 

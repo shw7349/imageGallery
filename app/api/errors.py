@@ -17,7 +17,6 @@ from app.errors import (
     Forbidden,
     InvalidCredentials,
     NotFound,
-    NotImplementedYet,
     TooManyRequests,
     ValidationFailed,
 )
@@ -35,7 +34,6 @@ _STATUS: dict[type[DomainError], int] = {
     InvalidCredentials: 401,
     Forbidden: 403,
     TooManyRequests: 429,
-    NotImplementedYet: 501,
 }
 
 
@@ -151,7 +149,6 @@ def problem_responses(*statuses: int) -> dict[int | str, ProblemExample]:
         409: "상태 충돌",
         422: "입력값 검증 실패",
         429: "요청 과다 (Retry-After 헤더)",
-        501: "아직 구현되지 않음",
         503: "파일 저장소(S3) 일시 장애 (Retry-After 헤더)",
     }
     return {

@@ -3,13 +3,20 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query
 
 from app.api.deps import AppSettings, DbSession
 from app.api.errors import problem_responses
-from app.api.mock import use_mock
-from app.mock import data as mock
-from app.schemas.stats import DailyViews, DownloadsStatsOut, StatsPeriod, TopPost, TopPostsOut, ViewsStatsOut
+from app.schemas.stats import (
+    DailyViews,
+    DownloadsStatsOut,
+    PhotoDownloads,
+    StatsPeriod,
+    TopPost,
+    TopPostsOut,
+    ViewsStatsOut,
+)
+from app.services import downloads as downloads_service
 from app.services import views as views_service
 
 router = APIRouter(prefix="/stats", tags=["admin-stats"])
@@ -57,12 +64,23 @@ def top(
     "/downloads",
     response_model=DownloadsStatsOut,
     summary="원본 다운로드 상위 사진",
-    responses=problem_responses(401, 422, 501),
+    responses=problem_responses(401, 422),
 )
 def downloads(
-    settings: AppSettings,
-    response: Response,
+    db: DbSession,
     days: Annotated[StatsPeriod, Query(description="최근 며칠")] = StatsPeriod.MONTH,
 ) -> DownloadsStatsOut:
-    use_mock(settings, response, "11")
-    return mock.downloads_stats(days)
+    rows = downloads_service.top_downloads(db, int(days))
+    return DownloadsStatsOut(
+        days=int(days),
+        items=[
+            PhotoDownloads(
+                photo_id=r.photo_id,
+                post_id=r.post_id,
+                post_title=r.post_title,
+                original_filename=r.original_filename,
+                downloads=r.downloads,
+            )
+            for r in rows
+        ],
+    )

@@ -2,7 +2,7 @@
 
 - 계약에 있는 모든 경로가 존재하는지
 - docs/openapi.json·docs/api.md가 코드와 같은지(스냅샷). 의도한 변경이면 `make openapi`로 갱신 후 커밋한다.
-- 관리자 경로가 전부 보호되는지, 미구현 엔드포인트가 501 problem+json인지
+- 관리자 경로가 전부 보호되는지, 입력 검증이 계약대로 동작하는지
 """
 
 import json
@@ -97,10 +97,6 @@ def test_every_admin_route_requires_admin(app: FastAPI) -> None:
             assert require_admin in calls, f"{method} {route.path}에 require_admin이 없습니다"
 
 
-# 미구현(501) 엔드포인트: 유효한 요청을 보내면 501 problem+json
-NOT_IMPLEMENTED_ADMIN: list[tuple[str, str, dict[str, Any] | None]] = [
-    ("GET", "/api/admin/stats/downloads?days=30", None),
-]
 # 인증 확인용: 구현 여부와 무관하게 로그인 없이는 401
 ADMIN_ENDPOINTS: list[tuple[str, str, dict[str, Any] | None]] = [
     (
@@ -116,21 +112,8 @@ ADMIN_ENDPOINTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/admin/photos/1/retry", None),
     ("GET", "/api/admin/stats/views?from=2026-11-01&to=2026-11-30", None),
     ("GET", "/api/admin/stats/top?days=7", None),
-    *NOT_IMPLEMENTED_ADMIN,
+    ("GET", "/api/admin/stats/downloads?days=30", None),
 ]
-NOT_IMPLEMENTED_PUBLIC: list[tuple[str, str]] = [
-    ("GET", "/api/photos/1/original"),
-]
-
-
-@pytest.mark.parametrize(("method", "path", "body"), NOT_IMPLEMENTED_ADMIN)
-def test_admin_stubs_return_501(
-    admin: AdminClient, method: str, path: str, body: dict[str, Any] | None
-) -> None:
-    res = admin.http.request(method, path, json=body, headers=admin.headers())
-    assert res.status_code == 501, res.text
-    assert res.headers["content-type"] == "application/problem+json"
-    assert res.json()["code"] == "not_implemented"
 
 
 @pytest.mark.parametrize(("method", "path", "body"), ADMIN_ENDPOINTS)
@@ -138,13 +121,6 @@ def test_admin_endpoints_require_login(
     client: TestClient, method: str, path: str, body: dict[str, Any] | None
 ) -> None:
     assert client.request(method, path, json=body).status_code == 401
-
-
-@pytest.mark.parametrize(("method", "path"), NOT_IMPLEMENTED_PUBLIC)
-def test_public_stubs_return_501(client: TestClient, method: str, path: str) -> None:
-    res = client.request(method, path, follow_redirects=False)
-    assert res.status_code == 501
-    assert res.json()["code"] == "not_implemented"
 
 
 @pytest.mark.parametrize(
@@ -158,7 +134,7 @@ def test_public_stubs_return_501(client: TestClient, method: str, path: str) -> 
         ("/api/admin/photos/1/complete", {"parts": []}),
     ],
 )
-def test_contract_validation_runs_before_stub(admin: AdminClient, path: str, body: dict[str, Any]) -> None:
+def test_contract_body_validation(admin: AdminClient, path: str, body: dict[str, Any]) -> None:
     assert admin.http.post(path, json=body, headers=admin.headers()).status_code == 422
 
 

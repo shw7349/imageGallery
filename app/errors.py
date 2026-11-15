@@ -52,8 +52,3 @@ class TooManyRequests(DomainError):
     def __init__(self, detail: str | None = None, *, retry_after_seconds: int, **extra: Any) -> None:
         super().__init__(detail, **extra)
         self.retry_after_seconds = retry_after_seconds
-
-
-class NotImplementedYet(DomainError):
-    code = "not_implemented"
-    title = "아직 구현되지 않은 기능입니다"

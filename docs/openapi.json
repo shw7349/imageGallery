@@ -1781,16 +1781,6 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "아직 구현되지 않음",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
           }
         }
       }
@@ -2095,8 +2085,8 @@
               }
             }
           },
-          "501": {
-            "description": "아직 구현되지 않음",
+          "503": {
+            "description": "파일 저장소(S3) 일시 장애 (Retry-After 헤더)",
             "content": {
               "application/problem+json": {
                 "schema": {

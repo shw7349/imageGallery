@@ -1,6 +1,8 @@
-"""목업 데이터(MOCK_API=true). 관리자 통계는 seed 고정 가짜 데이터, 조회수·원본 다운로드는 실제 DB 기준.
+"""로컬 개발용 데모 데이터 정의(seed 고정, 재실행해도 같다).
 
-목업 이미지 크기·이름은 scripts/seed_mock_images.py, 데모 게시물은 scripts/seed_demo_data.py가 쓴다.
+- scripts/seed_mock_images.py: IMAGE_SIZES 크기의 목업 이미지를 MinIO derived 버킷 mock/{n}/에 생성
+- scripts/seed_demo_data.py: demo_posts()를 실제 DB에 공개 게시물로 넣음(이미지는 위 목업 이미지)
+운영 코드(app/)에서는 쓰지 않는다.
 """
 
 import random
@@ -8,22 +10,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from app.errors import Forbidden, NotFound
-from app.models import Photo, PhotoStatus, Post, PostStatus
 from app.schemas.public import Exif
-from app.schemas.stats import (
-    DownloadsStatsOut,
-    PhotoDownloads,
-    StatsPeriod,
-)
-from app.services.urls import cdn_url
 
 MOCK_IMAGE_COUNT = 12  # seed_mock_images.py가 만드는 이미지 수
 MOCK_PREFIX = "mock"
-MAX_STATS_DAYS = 366
 
 # seed_mock_images.py와 같은 크기(원본 픽셀). 다양한 비율을 섞었다.
 IMAGE_SIZES: list[tuple[int, int]] = [
@@ -112,46 +102,3 @@ def demo_posts() -> tuple["DemoPost", ...]:
 
 
 DemoPost = _Post
-
-
-# ── 공개 API (10·11단계 구현 전까지) ──────────────────────────
-# 목록·상세는 09단계에서 실제 구현됐으므로 조회수·원본 다운로드 목업도
-# 실제 DB의 공개 게시물 기준으로 동작한다.
-
-
-def original_download_url(session: Session, cdn_base_url: str, photo_id: int) -> str:
-    """실제로는 원본의 10분짜리 Presigned URL. 목업은 같은 사진의 미리보기 이미지로 보낸다."""
-    row = session.execute(
-        select(Photo, Post)
-        .join(Post, Post.id == Photo.post_id)
-        .where(Photo.id == photo_id, Photo.status == PhotoStatus.READY, Post.status == PostStatus.PUBLISHED)
-    ).first()
-    if row is None:
-        raise NotFound(f"사진 {photo_id}를 찾을 수 없습니다")
-    photo, post = row
-    if not photo.preview_key:
-        raise NotFound(f"사진 {photo_id}를 찾을 수 없습니다")
-    if not post.allow_original_download:
-        raise Forbidden("이 게시물은 원본 다운로드를 허용하지 않습니다")
-    return cdn_url(cdn_base_url, photo.preview_key)
-
-
-# ── 관리자 통계 ──────────────────────────────────────────
-
-
-def downloads_stats(days: StatsPeriod) -> DownloadsStatsOut:
-    rng = random.Random(int(days))  # noqa: S311  # 목업
-    items = [
-        PhotoDownloads(
-            photo_id=ph.id,
-            post_id=p.id,
-            post_title=p.title,
-            original_filename=f"DSC{ph.id:05d}.ARW",
-            downloads=rng.randint(1, int(days) * 3),
-        )
-        for p in _dataset()
-        if p.allow_original_download
-        for ph in p.photos
-    ]
-    items.sort(key=lambda d: (-d.downloads, d.photo_id))
-    return DownloadsStatsOut(days=int(days), items=items[:50])
