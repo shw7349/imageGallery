@@ -26,15 +26,19 @@ router = APIRouter(prefix="/stats", tags=["admin-stats"])
     "/views",
     response_model=ViewsStatsOut,
     summary="일별 조회수",
-    description="from~to(양 끝 포함, 최대 366일)의 일별 조회수 합계.",
-    responses=problem_responses(401, 422),
+    description="from~to(양 끝 포함, 최대 366일)의 일별 조회수 합계. "
+    "postId를 주면 그 게시물의 날짜별 추이, 생략하면 사이트 전체.",
+    responses=problem_responses(401, 404, 422),
 )
 def views(
     db: DbSession,
     from_date: Annotated[date, Query(alias="from", examples=["2026-11-01"])],
     to_date: Annotated[date, Query(alias="to", examples=["2026-11-30"])],
+    post_id: Annotated[
+        int | None, Query(alias="postId", ge=1, description="이 게시물의 조회수만. 생략하면 사이트 전체")
+    ] = None,
 ) -> ViewsStatsOut:
-    days = views_service.daily_views(db, from_date, to_date)
+    days = views_service.daily_views(db, from_date, to_date, post_id)
     return ViewsStatsOut(
         from_date=from_date,
         to_date=to_date,

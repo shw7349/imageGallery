@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.api import sessions
 from app.config import Settings
 from app.db import get_session
-from app.errors import AuthenticationRequired, Forbidden
+from app.errors import AuthenticationRequired, Forbidden, NotFound
 from app.models import AdminUser
 from app.services import auth as auth_service
 from app.storage.s3 import S3Storage
@@ -32,6 +32,19 @@ def get_storage(request: Request) -> S3Storage:
 DbSession = Annotated[Session, Depends(get_session)]
 AppSettings = Annotated[Settings, Depends(get_settings_dep)]
 Storage = Annotated[S3Storage, Depends(get_storage)]
+
+
+def require_admin_host(request: Request, settings: AppSettings) -> None:
+    """관리자 API는 관리자 전용 도메인(ADMIN_HOSTS)으로 들어온 요청만 받는다.
+
+    공개 사이트 도메인으로 /api/admin/*을 호출하면 없는 경로와 똑같이 404를 준다(로그인 포함).
+    Host는 CloudFront가 정한 값이 그대로 전달돼야 한다(13단계: /api/*에 Host 전달 설정).
+    """
+    if not settings.admin_hosts:
+        return
+    host = request.headers.get("host", "").strip().lower().split(":")[0]
+    if host not in settings.admin_hosts:
+        raise NotFound()
 
 
 @dataclass(frozen=True)

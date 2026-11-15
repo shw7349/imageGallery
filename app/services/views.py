@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db import transaction
-from app.errors import ValidationFailed
+from app.errors import NotFound, ValidationFailed
 from app.models import Post, PostViewDaily, ViewDedupe
 from app.services import public
 
@@ -72,18 +72,24 @@ class DailyTotal:
     views: int
 
 
-def daily_views(session: Session, start: date, end: date) -> list[DailyTotal]:
-    """start~end(양 끝 포함)의 일별 합계. 조회가 없는 날도 0으로 채운다."""
+def daily_views(session: Session, start: date, end: date, post_id: int | None = None) -> list[DailyTotal]:
+    """start~end(양 끝 포함)의 일별 합계. 조회가 없는 날도 0으로 채운다.
+
+    post_id를 주면 그 게시물만(없는 게시물은 NotFound), 없으면 사이트 전체.
+    """
     if end < start:
         raise ValidationFailed("to는 from과 같거나 이후여야 합니다")
     span = (end - start).days + 1
     if span > MAX_STATS_DAYS:
         raise ValidationFailed(f"기간은 최대 {MAX_STATS_DAYS}일입니다")
-    rows = session.execute(
-        select(PostViewDaily.view_date, func.sum(PostViewDaily.count))
-        .where(PostViewDaily.view_date.between(start, end))
-        .group_by(PostViewDaily.view_date)
-    ).all()
+    query = select(PostViewDaily.view_date, func.sum(PostViewDaily.count)).where(
+        PostViewDaily.view_date.between(start, end)
+    )
+    if post_id is not None:
+        if session.get(Post, post_id) is None:
+            raise NotFound(f"게시물 {post_id}를 찾을 수 없습니다")
+        query = query.where(PostViewDaily.post_id == post_id)
+    rows = session.execute(query.group_by(PostViewDaily.view_date)).all()
     by_day = {d: int(n) for d, n in rows}
     return [
         DailyTotal(day=start + timedelta(days=i), views=by_day.get(start + timedelta(days=i), 0))

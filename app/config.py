@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # 보안
     session_secret: SecretStr = Field(min_length=32)
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    # 관리자 API(/api/admin/*)를 허용할 Host 목록(관리자 전용 도메인). 다른 Host로 오면 404.
+    # 비우면 제한 없음(로컬 개발용). 운영(ENV=prod)에서는 반드시 설정해야 한다.
+    admin_hosts: Annotated[list[str], NoDecode] = Field(default_factory=list)
     session_max_age_seconds: int = Field(default=12 * 3600, ge=60)
     login_max_failures: int = Field(default=5, ge=1)
     login_lock_seconds: int = Field(default=15 * 60, ge=1)
@@ -71,6 +74,22 @@ class Settings(BaseSettings):
     # libvips 제한(08단계): 스레드 수와 연산 캐시. 워커 메모리 상한을 예측 가능하게 한다.
     vips_concurrency: int = Field(default=2, ge=1, le=16)
     vips_cache_max_mb: int = Field(default=100, ge=0)
+
+    @field_validator("admin_hosts", mode="before")
+    @classmethod
+    def _split_hosts(cls, value: object) -> object:
+        """`ADMIN_HOSTS=admin.example.com,admin2.example.com` 형식. 소문자로 맞추고 포트는 뺀다."""
+        if isinstance(value, str):
+            value = [item for item in value.split(",")]
+        if isinstance(value, list):
+            return [str(h).strip().lower().split(":")[0] for h in value if str(h).strip()]
+        return value
+
+    @model_validator(mode="after")
+    def _prod_requires_admin_hosts(self) -> "Settings":
+        if self.env is Environment.PROD and not self.admin_hosts:
+            raise ValueError("운영(ENV=prod)에서는 ADMIN_HOSTS(관리자 전용 도메인)를 설정해야 합니다")
+        return self
 
     @field_validator("cors_origins", mode="before")
     @classmethod

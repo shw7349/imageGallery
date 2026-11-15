@@ -297,3 +297,45 @@ def test_worker_runs_maintenance_once_per_day(engine: Engine, settings: Settings
     with Session(engine) as s:
         assert s.scalar(select(func.count()).select_from(ViewDedupe)) == 0
     _ = text  # 미사용 import 방지
+
+
+# ── 게시물별 조회수 추이 (postId) ─────────────────────────
+
+
+def test_daily_views_for_single_post(admin: AdminClient, engine: Engine, post_id: int) -> None:
+    cat = insert_category(engine, "다른")
+    other = insert_post(engine, cat, title="다른 글")
+    _seed_daily(
+        engine,
+        [
+            (post_id, date(2026, 11, 1), 5),
+            (post_id, date(2026, 11, 3), 2),
+            (other, date(2026, 11, 1), 100),
+            (other, date(2026, 11, 2), 7),
+        ],
+    )
+    params = {"from": "2026-11-01", "to": "2026-11-03"}
+
+    one = admin.http.get("/api/admin/stats/views", params={**params, "postId": post_id}).json()
+    assert [d["views"] for d in one["days"]] == [5, 0, 2]
+    assert one["total"] == 7
+
+    everything = admin.http.get("/api/admin/stats/views", params=params).json()
+    assert [d["views"] for d in everything["days"]] == [105, 7, 2]  # postId 없으면 기존대로 전체
+
+
+def test_daily_views_post_id_validation(admin: AdminClient) -> None:
+    params = {"from": "2026-11-01", "to": "2026-11-03"}
+    assert admin.http.get("/api/admin/stats/views", params={**params, "postId": 999}).status_code == 404
+    assert admin.http.get("/api/admin/stats/views", params={**params, "postId": 0}).status_code == 422
+    assert admin.http.get("/api/admin/stats/views", params={**params, "postId": "abc"}).status_code == 422
+
+
+def test_daily_views_works_for_unpublished_post(admin: AdminClient, engine: Engine) -> None:
+    cat = insert_category(engine, "c")
+    hidden = insert_post(engine, cat, status=PostStatus.HIDDEN)
+    _seed_daily(engine, [(hidden, date(2026, 11, 1), 3)])
+    res = admin.http.get(
+        "/api/admin/stats/views", params={"from": "2026-11-01", "to": "2026-11-01", "postId": hidden}
+    )
+    assert res.json()["total"] == 3  # 숨긴 글의 과거 조회수도 관리자는 볼 수 있다

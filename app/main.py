@@ -90,6 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response.headers[REQUEST_ID_HEADER] = request_id
             if request.url.path.startswith("/api/admin"):
                 response.headers["Cache-Control"] = "no-store"
+                response.headers["X-Robots-Tag"] = "noindex, nofollow"  # 검색엔진 노출 차단
             # 쿼리스트링은 남기지 않는다(서명·토큰이 포함될 수 있음).
             logger.info(
                 "request",

@@ -1613,7 +1613,7 @@
           "admin-stats"
         ],
         "summary": "일별 조회수",
-        "description": "from~to(양 끝 포함, 최대 366일)의 일별 조회수 합계.",
+        "description": "from~to(양 끝 포함, 최대 366일)의 일별 조회수 합계. postId를 주면 그 게시물의 날짜별 추이, 생략하면 사이트 전체.",
         "operationId": "views_api_admin_stats_views_get",
         "parameters": [
           {
@@ -1641,6 +1641,25 @@
               ],
               "title": "To"
             }
+          },
+          {
+            "name": "postId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "이 게시물의 조회수만. 생략하면 사이트 전체",
+              "title": "Postid"
+            },
+            "description": "이 게시물의 조회수만. 생략하면 사이트 전체"
           }
         ],
         "responses": {
@@ -1656,6 +1675,16 @@
           },
           "401": {
             "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
             "content": {
               "application/problem+json": {
                 "schema": {
