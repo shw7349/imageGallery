@@ -127,6 +127,14 @@ class Settings(BaseSettings):
             raise ValueError(f"알 수 없는 시간대: {value}") from exc
         return value
 
+    @field_validator("job_retry_delays_seconds", mode="before")
+    @classmethod
+    def _split_delays(cls, value: object) -> object:
+        """`JOB_RETRY_DELAYS_SECONDS=60,300,900` 형식의 쉼표 구분 문자열을 허용한다."""
+        if isinstance(value, str):
+            return [int(v) for v in value.split(",") if v.strip()]
+        return value
+
     @field_validator("s3_endpoint_url", mode="before")
     @classmethod
     def _empty_to_none(cls, value: object) -> object:
