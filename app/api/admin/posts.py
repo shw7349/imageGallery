@@ -63,7 +63,12 @@ def _fields(body: PostIn) -> service.PostFields:
     )
 
 
-@router.get("", response_model=Page[AdminPostSummary], responses=problem_responses(401, 422))
+@router.get(
+    "",
+    summary="게시물 목록 (모든 상태)",
+    response_model=Page[AdminPostSummary],
+    responses=problem_responses(401, 422),
+)
 def list_posts(
     db: DbSession,
     page: Annotated[int, Query(ge=1, le=100_000)] = 1,
@@ -80,6 +85,7 @@ def list_posts(
 
 @router.post(
     "",
+    summary="게시물 생성 (DRAFT)",
     response_model=AdminPostDetail,
     status_code=status.HTTP_201_CREATED,
     responses=problem_responses(401, 403, 422),
@@ -88,18 +94,31 @@ def create_post(body: PostIn, db: DbSession) -> AdminPostDetail:
     return _detail(service.create_post(db, _fields(body)))
 
 
-@router.get("/{post_id}", response_model=AdminPostDetail, responses=problem_responses(401, 404))
+@router.get(
+    "/{post_id}",
+    summary="게시물 상세 (사진 포함)",
+    response_model=AdminPostDetail,
+    responses=problem_responses(401, 404),
+)
 def get_post(post_id: int, db: DbSession) -> AdminPostDetail:
     return _detail(service.get_post(db, post_id))
 
 
-@router.put("/{post_id}", response_model=AdminPostDetail, responses=problem_responses(401, 403, 404, 422))
+@router.put(
+    "/{post_id}",
+    summary="게시물 수정 (전체 교체)",
+    response_model=AdminPostDetail,
+    responses=problem_responses(401, 403, 404, 422),
+)
 def update_post(post_id: int, body: PostIn, db: DbSession) -> AdminPostDetail:
     return _detail(service.update_post(db, post_id, _fields(body)))
 
 
 @router.delete(
-    "/{post_id}", status_code=status.HTTP_204_NO_CONTENT, responses=problem_responses(401, 403, 404)
+    "/{post_id}",
+    summary="게시물 삭제 (사진 포함)",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=problem_responses(401, 403, 404),
 )
 def delete_post(post_id: int, db: DbSession) -> Response:
     service.delete_post(db, post_id)
@@ -108,6 +127,7 @@ def delete_post(post_id: int, db: DbSession) -> Response:
 
 @router.patch(
     "/{post_id}/status",
+    summary="공개 상태 변경",
     response_model=AdminPostDetail,
     responses=problem_responses(401, 403, 404, 409, 422),
 )
@@ -117,6 +137,7 @@ def change_status(post_id: int, body: PostStatusIn, db: DbSession) -> AdminPostD
 
 @router.put(
     "/{post_id}/photos/order",
+    summary="사진 순서 변경 (첫 사진이 대표)",
     response_model=AdminPostDetail,
     responses=problem_responses(401, 403, 404, 422),
 )

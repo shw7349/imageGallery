@@ -6,7 +6,7 @@
 
 from fastapi import APIRouter, Depends
 
-from app.api.admin import auth, categories, posts
+from app.api.admin import auth, categories, photos, posts, stats
 from app.api.deps import require_admin
 
 
@@ -18,5 +18,7 @@ def build_admin_router() -> APIRouter:
     protected.include_router(auth.router)
     protected.include_router(categories.router)
     protected.include_router(posts.router)
+    protected.include_router(photos.router)
+    protected.include_router(stats.router)
     root.include_router(protected)
     return root

@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     login_max_failures: int = Field(default=5, ge=1)
     login_lock_seconds: int = Field(default=15 * 60, ge=1)
 
+    # 업로드 (06단계). 파트 크기 16MB, 최대 파일 크기 1GB. S3 최소 파트 크기는 5MB(마지막 파트 제외).
+    upload_max_bytes: int = Field(default=1024**3, ge=1)
+    upload_part_size: int = Field(default=16 * 1024**2, ge=5 * 1024**2)
+
     # 워커
     worker_concurrency: int = Field(default=1, ge=1, le=8)
     # 원본 다운로드·변환용 로컬 디렉터리. 300MB 원본 + 파생물이 들어갈 여유가 필요하다.

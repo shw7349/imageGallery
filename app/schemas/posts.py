@@ -49,6 +49,7 @@ class PhotoOrderIn(CamelModel):
 
 class AdminPhotoOut(CamelModel):
     id: int = Field(examples=[10])
+    post_id: int = Field(examples=[1])
     sort_order: int = Field(examples=[0])
     status: PhotoStatus = Field(examples=["READY"])
     original_filename: str = Field(examples=["DSC01234.ARW"])

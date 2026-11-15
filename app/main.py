@@ -13,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health
 from app.api.admin import build_admin_router
-from app.api.errors import register_error_handlers
+from app.api.errors import problem_responses, register_error_handlers
+from app.api.public import build_public_router
 from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
 from app.logging import request_id_var, setup_logging
@@ -43,6 +44,14 @@ def _register_problem_schema(app: FastAPI) -> None:
         schema = original()
         components = schema.setdefault("components", {}).setdefault("schemas", {})
         components["Problem"] = Problem.model_json_schema(ref_template="#/components/schemas/{model}")
+        # FastAPI가 자동으로 넣는 422(HTTPValidationError, application/json)를 실제 응답 형식으로 바꾼다.
+        problem_422 = problem_responses(422)[422]
+        for item in schema.get("paths", {}).values():
+            for op in item.values():
+                if "422" in op.get("responses", {}):
+                    op["responses"]["422"] = problem_422
+        components.pop("HTTPValidationError", None)
+        components.pop("ValidationError", None)
         app.openapi_schema = schema
         return schema
 
@@ -105,4 +114,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     _register_problem_schema(app)
     app.include_router(health.router)
     app.include_router(build_admin_router())
+    app.include_router(build_public_router())
     return app

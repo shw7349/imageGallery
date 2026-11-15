@@ -9,6 +9,7 @@ router = APIRouter(tags=["health"])
 
 @router.get(
     "/healthz",
+    summary="헬스 체크 (DB 연결 포함)",
     response_model=HealthResponse,
     responses={503: {"model": HealthResponse, "description": "의존 서비스 장애"}},
 )

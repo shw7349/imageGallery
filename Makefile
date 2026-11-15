@@ -49,8 +49,9 @@ test: ## pytest (make up 필요)
 
 check: lint typecheck test ## lint + typecheck + test
 
-openapi: ## docs/openapi.json 생성 (docs/api.md는 05단계)
+openapi: ## docs/openapi.json + docs/api.md 생성 (API 변경 시 필수)
 	$(UV) run python scripts/export_openapi.py docs/openapi.json
+	$(UV) run python scripts/gen_api_md.py docs/openapi.json docs/api.md
 
 docker-build: ## arm64 이미지 빌드 + pyvips 확인
 	docker build --platform linux/arm64 -t gallery:dev .

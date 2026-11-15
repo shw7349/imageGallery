@@ -10,7 +10,7 @@
         "tags": [
           "health"
         ],
-        "summary": "Healthz",
+        "summary": "헬스 체크 (DB 연결 포함)",
         "operationId": "healthz_healthz_get",
         "responses": {
           "200": {
@@ -41,7 +41,7 @@
         "tags": [
           "admin-auth"
         ],
-        "summary": "Login",
+        "summary": "로그인 (세션 쿠키 + csrfToken 발급)",
         "operationId": "login_api_admin_auth_login_post",
         "requestBody": {
           "content": {
@@ -102,7 +102,7 @@
         "tags": [
           "admin-auth"
         ],
-        "summary": "Logout",
+        "summary": "로그아웃 (모든 세션 무효화)",
         "operationId": "logout_api_admin_auth_logout_post",
         "responses": {
           "204": {
@@ -136,7 +136,7 @@
         "tags": [
           "admin-auth"
         ],
-        "summary": "Me",
+        "summary": "현재 관리자 · csrfToken 재발급",
         "operationId": "me_api_admin_auth_me_get",
         "responses": {
           "200": {
@@ -167,7 +167,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "List Categories",
+        "summary": "카테고리 목록 (sortOrder순)",
         "operationId": "list_categories_api_admin_categories_get",
         "responses": {
           "200": {
@@ -200,7 +200,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Create Category",
+        "summary": "카테고리 생성",
         "operationId": "create_category_api_admin_categories_post",
         "requestBody": {
           "content": {
@@ -271,7 +271,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Update Category",
+        "summary": "카테고리 수정",
         "operationId": "update_category_api_admin_categories__category_id__put",
         "parameters": [
           {
@@ -361,7 +361,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Delete Category",
+        "summary": "카테고리 삭제 (게시물이 있으면 409)",
         "operationId": "delete_category_api_admin_categories__category_id__delete",
         "parameters": [
           {
@@ -419,11 +419,11 @@
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "입력값 검증 실패",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -436,7 +436,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "List Posts",
+        "summary": "게시물 목록 (모든 상태)",
         "operationId": "list_posts_api_admin_posts_get",
         "parameters": [
           {
@@ -543,7 +543,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Create Post",
+        "summary": "게시물 생성 (DRAFT)",
         "operationId": "create_post_api_admin_posts_post",
         "requestBody": {
           "required": true,
@@ -604,7 +604,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Get Post",
+        "summary": "게시물 상세 (사진 포함)",
         "operationId": "get_post_api_admin_posts__post_id__get",
         "parameters": [
           {
@@ -649,11 +649,11 @@
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "입력값 검증 실패",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -664,7 +664,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Update Post",
+        "summary": "게시물 수정 (전체 교체)",
         "operationId": "update_post_api_admin_posts__post_id__put",
         "parameters": [
           {
@@ -744,7 +744,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Delete Post",
+        "summary": "게시물 삭제 (사진 포함)",
         "operationId": "delete_post_api_admin_posts__post_id__delete",
         "parameters": [
           {
@@ -792,11 +792,11 @@
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "입력값 검증 실패",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -809,7 +809,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Change Status",
+        "summary": "공개 상태 변경",
         "operationId": "change_status_api_admin_posts__post_id__status_patch",
         "parameters": [
           {
@@ -901,7 +901,7 @@
         "tags": [
           "admin-posts"
         ],
-        "summary": "Reorder Photos",
+        "summary": "사진 순서 변경 (첫 사진이 대표)",
         "operationId": "reorder_photos_api_admin_posts__post_id__photos_order_put",
         "parameters": [
           {
@@ -977,6 +977,1206 @@
           }
         }
       }
+    },
+    "/api/admin/posts/{post_id}/photos": {
+      "post": {
+        "tags": [
+          "admin-photos"
+        ],
+        "summary": "업로드 시작",
+        "description": "S3 멀티파트 업로드를 만들고 사진 레코드(UPLOADING)를 생성한다. 파일 바이트는 이 API로 보내지 않는다.",
+        "operationId": "start_upload_api_admin_posts__post_id__photos_post",
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadStartIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStartOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 없음 (CSRF 토큰 누락·불일치 포함)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "상태 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/photos/{photo_id}/parts": {
+      "post": {
+        "tags": [
+          "admin-photos"
+        ],
+        "summary": "파트 업로드 URL 발급",
+        "description": "요청한 파트 번호마다 Presigned PUT URL(1시간)을 발급한다. 번호는 1..partCount.",
+        "operationId": "presign_parts_api_admin_photos__photo_id__parts_post",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartUrlsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartUrlsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 없음 (CSRF 토큰 누락·불일치 포함)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "상태 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "admin-photos"
+        ],
+        "summary": "이미 올라간 파트 조회 (이어 올리기)",
+        "operationId": "list_uploaded_parts_api_admin_photos__photo_id__parts_get",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedPartsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "상태 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/photos/{photo_id}/complete": {
+      "post": {
+        "tags": [
+          "admin-photos"
+        ],
+        "summary": "업로드 완료",
+        "description": "모든 파트의 ETag를 보내 업로드를 끝낸다. 성공하면 UPLOADED가 되고 변환 작업이 등록된다. 같은 요청을 다시 보내도 안전하다(멱등).",
+        "operationId": "complete_upload_api_admin_photos__photo_id__complete_post",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPhotoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 없음 (CSRF 토큰 누락·불일치 포함)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "상태 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/photos/{photo_id}": {
+      "get": {
+        "tags": [
+          "admin-photos"
+        ],
+        "summary": "사진 상태 조회",
+        "description": "업로드·변환 진행 상황 확인용. 변환 중에는 몇 초 간격으로 폴링한다.",
+        "operationId": "get_photo_api_admin_photos__photo_id__get",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPhotoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin-photos"
+        ],
+        "summary": "업로드 중단 / 사진 삭제",
+        "description": "UPLOADING이면 멀티파트 업로드를 중단하고, 아니면 원본·파생 파일과 레코드를 지운다.",
+        "operationId": "delete_photo_api_admin_photos__photo_id__delete",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 없음 (CSRF 토큰 누락·불일치 포함)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/photos/{photo_id}/retry": {
+      "post": {
+        "tags": [
+          "admin-photos"
+        ],
+        "summary": "실패한 사진 재처리",
+        "description": "FAILED 사진의 변환 작업을 다시 등록한다. FAILED가 아니면 409.",
+        "operationId": "retry_photo_api_admin_photos__photo_id__retry_post",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPhotoOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 없음 (CSRF 토큰 누락·불일치 포함)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "상태 충돌",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/stats/views": {
+      "get": {
+        "tags": [
+          "admin-stats"
+        ],
+        "summary": "일별 조회수",
+        "description": "from~to(양 끝 포함, 최대 366일)의 일별 조회수 합계.",
+        "operationId": "views_api_admin_stats_views_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-11-01"
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-11-30"
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewsStatsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/stats/top": {
+      "get": {
+        "tags": [
+          "admin-stats"
+        ],
+        "summary": "조회수 상위 게시물",
+        "operationId": "top_api_admin_stats_top_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StatsPeriod",
+              "description": "최근 며칠",
+              "default": 7
+            },
+            "description": "최근 며칠"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopPostsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/stats/downloads": {
+      "get": {
+        "tags": [
+          "admin-stats"
+        ],
+        "summary": "원본 다운로드 상위 사진",
+        "operationId": "downloads_api_admin_stats_downloads_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StatsPeriod",
+              "description": "최근 며칠",
+              "default": 30
+            },
+            "description": "최근 며칠"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadsStatsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "로그인 필요 / 인증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "카테고리 목록",
+        "operationId": "list_categories_api_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PublicCategory"
+                  },
+                  "type": "array",
+                  "title": "Response List Categories Api Categories Get"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "공개 게시물 목록",
+        "description": "공개(PUBLISHED) 상태이고 READY 사진이 1장 이상인 게시물만.",
+        "operationId": "list_posts_api_posts_get",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "카테고리 ID",
+              "title": "Category"
+            },
+            "description": "카테고리 ID"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "제목·본문 검색어",
+              "title": "Q"
+            },
+            "description": "제목·본문 검색어"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PublicSort",
+              "default": "published"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_PublicPostSummary_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts/{post_id}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "공개 게시물 상세",
+        "description": "비공개·없는 게시물은 똑같이 404.",
+        "operationId": "get_post_api_posts__post_id__get",
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPostDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts/{post_id}/views": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "조회수 기록",
+        "description": "상세 화면을 열 때 1회 호출한다. 방문자(vid 쿠키)당 하루 1회만 집계되며, 중복 여부와 관계없이 항상 204를 돌려준다.",
+        "operationId": "record_view_api_posts__post_id__views_post",
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Post Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 과다 (Retry-After 헤더)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/photos/{photo_id}/original": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "원본 다운로드",
+        "description": "게시물이 원본 다운로드를 허용하면 10분짜리 S3 URL로 302 리다이렉트한다. 브라우저에서 <a href>로 열면 원래 파일명으로 저장된다.",
+        "operationId": "download_original_api_photos__photo_id__original_get",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Location 헤더의 URL로 이동",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "권한 없음 (CSRF 토큰 누락·불일치 포함)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "대상 없음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 과다 (Retry-After 헤더)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "아직 구현되지 않음",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "입력값 검증 실패",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -988,6 +2188,13 @@
             "title": "Id",
             "examples": [
               10
+            ]
+          },
+          "postId": {
+            "type": "integer",
+            "title": "Postid",
+            "examples": [
+              1
             ]
           },
           "sortOrder": {
@@ -1076,6 +2283,7 @@
         "type": "object",
         "required": [
           "id",
+          "postId",
           "sortOrder",
           "status",
           "originalFilename",
@@ -1404,18 +2612,216 @@
         ],
         "title": "CategoryOut"
       },
-      "HTTPValidationError": {
+      "CompleteIn": {
         "properties": {
-          "detail": {
+          "parts": {
             "items": {
-              "$ref": "#/components/schemas/ValidationError"
+              "$ref": "#/components/schemas/CompletePart"
             },
             "type": "array",
-            "title": "Detail"
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Parts",
+            "description": "모든 파트의 번호와 ETag(1..partCount 전부)"
           }
         },
         "type": "object",
-        "title": "HTTPValidationError"
+        "required": [
+          "parts"
+        ],
+        "title": "CompleteIn"
+      },
+      "CompletePart": {
+        "properties": {
+          "partNumber": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Partnumber"
+          },
+          "etag": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Etag",
+            "examples": [
+              "\"9b2cf535f27731c974343645a3985328\""
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "partNumber",
+          "etag"
+        ],
+        "title": "CompletePart"
+      },
+      "DailyViews": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "views": {
+            "type": "integer",
+            "title": "Views",
+            "examples": [
+              37
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "views"
+        ],
+        "title": "DailyViews"
+      },
+      "DownloadsStatsOut": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "title": "Days",
+            "examples": [
+              30
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoDownloads"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "기간 내 원본 다운로드 상위 50개 사진"
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "items"
+        ],
+        "title": "DownloadsStatsOut"
+      },
+      "Exif": {
+        "properties": {
+          "cameraMake": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cameramake",
+            "examples": [
+              "SONY"
+            ]
+          },
+          "cameraModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cameramodel",
+            "examples": [
+              "ILCE-7RM5"
+            ]
+          },
+          "lens": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lens",
+            "examples": [
+              "FE 24-70mm F2.8 GM II"
+            ]
+          },
+          "fNumber": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fnumber",
+            "description": "조리개 값",
+            "examples": [
+              8.0
+            ]
+          },
+          "exposureTime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposuretime",
+            "description": "셔터 속도",
+            "examples": [
+              "1/250"
+            ]
+          },
+          "iso": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iso",
+            "examples": [
+              100
+            ]
+          },
+          "focalLengthMm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focallengthmm",
+            "examples": [
+              35.0
+            ]
+          },
+          "takenAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Takenat",
+            "description": "촬영 시각(카메라 시계 기준)"
+          }
+        },
+        "type": "object",
+        "title": "Exif",
+        "description": "촬영 정보. 원본에 없으면 null. 위치(GPS) 정보는 제공하지 않는다."
       },
       "HealthResponse": {
         "properties": {
@@ -1515,6 +2921,176 @@
           "total"
         ],
         "title": "Page[AdminPostSummary]"
+      },
+      "Page_PublicPostSummary_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicPostSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "examples": [
+              1
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Size",
+            "examples": [
+              20
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total",
+            "description": "필터 조건에 맞는 전체 개수",
+            "examples": [
+              42
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ],
+        "title": "Page[PublicPostSummary]"
+      },
+      "PartUrl": {
+        "properties": {
+          "partNumber": {
+            "type": "integer",
+            "title": "Partnumber",
+            "examples": [
+              1
+            ]
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "이 URL로 파트 바이트를 그대로 PUT한다",
+            "examples": [
+              "https://s3.../original.arw?partNumber=1&uploadId=...&X-Amz-Signature=..."
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expiresat",
+            "description": "URL 만료 시각(발급 후 1시간)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "partNumber",
+          "url",
+          "expiresAt"
+        ],
+        "title": "PartUrl"
+      },
+      "PartUrlsIn": {
+        "properties": {
+          "partNumbers": {
+            "items": {
+              "type": "integer",
+              "maximum": 10000.0,
+              "minimum": 1.0
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Partnumbers",
+            "description": "URL을 받을 파트 번호(1부터). 한 번에 최대 100개",
+            "examples": [
+              [
+                1,
+                2,
+                3,
+                4
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "partNumbers"
+        ],
+        "title": "PartUrlsIn"
+      },
+      "PartUrlsOut": {
+        "properties": {
+          "urls": {
+            "items": {
+              "$ref": "#/components/schemas/PartUrl"
+            },
+            "type": "array",
+            "title": "Urls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "urls"
+        ],
+        "title": "PartUrlsOut"
+      },
+      "PhotoDownloads": {
+        "properties": {
+          "photoId": {
+            "type": "integer",
+            "title": "Photoid",
+            "examples": [
+              10
+            ]
+          },
+          "postId": {
+            "type": "integer",
+            "title": "Postid",
+            "examples": [
+              1
+            ]
+          },
+          "postTitle": {
+            "type": "string",
+            "title": "Posttitle",
+            "examples": [
+              "제주 오름 일출"
+            ]
+          },
+          "originalFilename": {
+            "type": "string",
+            "title": "Originalfilename",
+            "examples": [
+              "DSC01234.ARW"
+            ]
+          },
+          "downloads": {
+            "type": "integer",
+            "title": "Downloads",
+            "examples": [
+              5
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "photoId",
+          "postId",
+          "postTitle",
+          "originalFilename",
+          "downloads"
+        ],
+        "title": "PhotoDownloads"
       },
       "PhotoOrderIn": {
         "properties": {
@@ -1630,45 +3206,525 @@
         ],
         "title": "PostStatusIn"
       },
-      "ValidationError": {
+      "PublicCategory": {
         "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "examples": [
+              1
+            ]
           },
-          "msg": {
+          "name": {
             "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
+            "title": "Name",
+            "examples": [
+              "풍경"
+            ]
           }
         },
         "type": "object",
         "required": [
-          "loc",
-          "msg",
-          "type"
+          "id",
+          "name"
         ],
-        "title": "ValidationError"
+        "title": "PublicCategory"
+      },
+      "PublicPhoto": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "examples": [
+              10
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width",
+            "description": "원본 픽셀 너비(회전 반영)",
+            "examples": [
+              9504
+            ]
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height",
+            "examples": [
+              6336
+            ]
+          },
+          "thumbUrl": {
+            "type": "string",
+            "title": "Thumburl",
+            "examples": [
+              "https://cdn.example.com/derived/1/10/thumb.webp"
+            ]
+          },
+          "previewUrl": {
+            "type": "string",
+            "title": "Previewurl",
+            "description": "긴 변 3840px WebP",
+            "examples": [
+              "https://cdn.example.com/derived/1/10/preview.webp"
+            ]
+          },
+          "dziUrl": {
+            "type": "string",
+            "title": "Dziurl",
+            "description": "딥줌(OpenSeadragon) DZI 파일. 타일은 같은 위치의 photo_files/ 아래",
+            "examples": [
+              "https://cdn.example.com/derived/1/10/photo.dzi"
+            ]
+          },
+          "exif": {
+            "$ref": "#/components/schemas/Exif"
+          },
+          "originalDownloadUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originaldownloadurl",
+            "description": "원본 다운로드 API 경로. 게시물이 다운로드를 허용하지 않으면 null",
+            "examples": [
+              "/api/photos/10/original"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "width",
+          "height",
+          "thumbUrl",
+          "previewUrl",
+          "dziUrl",
+          "exif",
+          "originalDownloadUrl"
+        ],
+        "title": "PublicPhoto"
+      },
+      "PublicPostDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "examples": [
+              1
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "examples": [
+              "제주 오름 일출"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "title": "Body",
+            "examples": [
+              "새벽 5시, 새별오름에서."
+            ]
+          },
+          "categoryId": {
+            "type": "integer",
+            "title": "Categoryid",
+            "examples": [
+              1
+            ]
+          },
+          "categoryName": {
+            "type": "string",
+            "title": "Categoryname",
+            "examples": [
+              "풍경"
+            ]
+          },
+          "viewCount": {
+            "type": "integer",
+            "title": "Viewcount",
+            "examples": [
+              128
+            ]
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Publishedat"
+          },
+          "allowOriginalDownload": {
+            "type": "boolean",
+            "title": "Alloworiginaldownload"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/PublicPhoto"
+            },
+            "type": "array",
+            "title": "Photos",
+            "description": "READY 사진만, 관리자가 정한 순서"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "categoryId",
+          "categoryName",
+          "viewCount",
+          "publishedAt",
+          "allowOriginalDownload",
+          "photos"
+        ],
+        "title": "PublicPostDetail"
+      },
+      "PublicPostSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "examples": [
+              1
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "examples": [
+              "제주 오름 일출"
+            ]
+          },
+          "categoryId": {
+            "type": "integer",
+            "title": "Categoryid",
+            "examples": [
+              1
+            ]
+          },
+          "categoryName": {
+            "type": "string",
+            "title": "Categoryname",
+            "examples": [
+              "풍경"
+            ]
+          },
+          "thumbUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumburl",
+            "description": "대표 사진 썸네일(긴 변 600px WebP)",
+            "examples": [
+              "https://cdn.example.com/derived/1/10/thumb.webp"
+            ]
+          },
+          "photoCount": {
+            "type": "integer",
+            "title": "Photocount",
+            "description": "공개된(READY) 사진 수",
+            "examples": [
+              3
+            ]
+          },
+          "viewCount": {
+            "type": "integer",
+            "title": "Viewcount",
+            "examples": [
+              128
+            ]
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Publishedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "categoryId",
+          "categoryName",
+          "thumbUrl",
+          "photoCount",
+          "viewCount",
+          "publishedAt"
+        ],
+        "title": "PublicPostSummary"
+      },
+      "PublicSort": {
+        "type": "string",
+        "enum": [
+          "published",
+          "views"
+        ],
+        "title": "PublicSort"
+      },
+      "StatsPeriod": {
+        "type": "integer",
+        "enum": [
+          7,
+          30,
+          90
+        ],
+        "title": "StatsPeriod",
+        "description": "통계 기간(최근 며칠)."
+      },
+      "TopPost": {
+        "properties": {
+          "postId": {
+            "type": "integer",
+            "title": "Postid",
+            "examples": [
+              1
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "examples": [
+              "제주 오름 일출"
+            ]
+          },
+          "views": {
+            "type": "integer",
+            "title": "Views",
+            "description": "기간 내 조회수",
+            "examples": [
+              120
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "postId",
+          "title",
+          "views"
+        ],
+        "title": "TopPost"
+      },
+      "TopPostsOut": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "title": "Days",
+            "examples": [
+              7
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TopPost"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "기간 내 조회수 상위 20개"
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "items"
+        ],
+        "title": "TopPostsOut"
+      },
+      "UploadStartIn": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Filename",
+            "description": "원본 파일명. 확장자 허용: jpg, jpeg, tif, tiff, png, arw, cr2, cr3, nef, raf, orf, rw2, dng",
+            "examples": [
+              "DSC01234.ARW"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Sizebytes",
+            "description": "파일 크기(바이트). 최대 1GB(서버 설정)",
+            "examples": [
+              314572800
+            ]
+          },
+          "contentType": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Contenttype",
+            "description": "브라우저가 알려준 MIME 타입. 모르면 application/octet-stream",
+            "examples": [
+              "image/x-sony-arw"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "sizeBytes",
+          "contentType"
+        ],
+        "title": "UploadStartIn"
+      },
+      "UploadStartOut": {
+        "properties": {
+          "photoId": {
+            "type": "integer",
+            "title": "Photoid",
+            "examples": [
+              10
+            ]
+          },
+          "uploadId": {
+            "type": "string",
+            "title": "Uploadid",
+            "description": "S3 멀티파트 업로드 ID(참고용)",
+            "examples": [
+              "2~abcDEF..."
+            ]
+          },
+          "partSize": {
+            "type": "integer",
+            "title": "Partsize",
+            "description": "마지막 파트를 제외한 각 파트 크기(바이트)",
+            "examples": [
+              16777216
+            ]
+          },
+          "partCount": {
+            "type": "integer",
+            "title": "Partcount",
+            "description": "전체 파트 수 = ceil(sizeBytes / partSize)",
+            "examples": [
+              19
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "photoId",
+          "uploadId",
+          "partSize",
+          "partCount"
+        ],
+        "title": "UploadStartOut"
+      },
+      "UploadedPart": {
+        "properties": {
+          "partNumber": {
+            "type": "integer",
+            "title": "Partnumber",
+            "examples": [
+              1
+            ]
+          },
+          "etag": {
+            "type": "string",
+            "title": "Etag",
+            "description": "S3가 돌려준 ETag(따옴표 포함 그대로)",
+            "examples": [
+              "\"9b2cf535f27731c974343645a3985328\""
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "title": "Sizebytes",
+            "examples": [
+              16777216
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "partNumber",
+          "etag",
+          "sizeBytes"
+        ],
+        "title": "UploadedPart"
+      },
+      "UploadedPartsOut": {
+        "properties": {
+          "partSize": {
+            "type": "integer",
+            "title": "Partsize",
+            "examples": [
+              16777216
+            ]
+          },
+          "partCount": {
+            "type": "integer",
+            "title": "Partcount",
+            "examples": [
+              19
+            ]
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/UploadedPart"
+            },
+            "type": "array",
+            "title": "Parts",
+            "description": "이미 S3에 올라간 파트(파트 번호 오름차순)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "partSize",
+          "partCount",
+          "parts"
+        ],
+        "title": "UploadedPartsOut"
+      },
+      "ViewsStatsOut": {
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "title": "From"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "title": "To"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "examples": [
+              512
+            ]
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DailyViews"
+            },
+            "type": "array",
+            "title": "Days",
+            "description": "from~to 모든 날짜(조회 0인 날 포함), 날짜 오름차순"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "total",
+          "days"
+        ],
+        "title": "ViewsStatsOut"
       },
       "Problem": {
         "additionalProperties": true,

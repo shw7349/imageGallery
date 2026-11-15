@@ -13,6 +13,7 @@ router = APIRouter(prefix="/auth", tags=["admin-auth"])
 
 @public_router.post(
     "/login",
+    summary="로그인 (세션 쿠키 + csrfToken 발급)",
     response_model=AdminSession,
     responses=problem_responses(401, 422, 429),
 )
@@ -26,7 +27,12 @@ def login(
     return AdminSession(username=user.username, csrf_token=data.csrf_token)
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, responses=problem_responses(401, 403))
+@router.post(
+    "/logout",
+    summary="로그아웃 (모든 세션 무효화)",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=problem_responses(401, 403),
+)
 def logout(admin: Admin, db: DbSession) -> Response:
     auth_service.revoke_sessions(db, admin.user.id)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -34,6 +40,11 @@ def logout(admin: Admin, db: DbSession) -> Response:
     return response
 
 
-@router.get("/me", response_model=AdminSession, responses=problem_responses(401))
+@router.get(
+    "/me",
+    summary="현재 관리자 · csrfToken 재발급",
+    response_model=AdminSession,
+    responses=problem_responses(401),
+)
 def me(admin: Admin) -> AdminSession:
     return AdminSession(username=admin.user.username, csrf_token=admin.session.csrf_token)
