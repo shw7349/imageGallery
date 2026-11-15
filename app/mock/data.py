@@ -1,20 +1,19 @@
-"""결정적(seed 고정) 목업 데이터와 조회 함수. 재시작해도 같은 데이터가 나온다."""
+"""목업 데이터(MOCK_API=true). 관리자 통계는 seed 고정 가짜 데이터, 조회수·원본 다운로드는 실제 DB 기준.
+
+목업 이미지 크기·이름은 scripts/seed_mock_images.py, 데모 게시물은 scripts/seed_demo_data.py가 쓴다.
+"""
 
 import random
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.errors import Forbidden, NotFound, ValidationFailed
-from app.schemas.pagination import Page
-from app.schemas.public import (
-    Exif,
-    PublicCategory,
-    PublicPhoto,
-    PublicPostDetail,
-    PublicPostSummary,
-    PublicSort,
-)
+from app.models import Photo, PhotoStatus, Post, PostStatus
+from app.schemas.public import Exif
 from app.schemas.stats import (
     DailyViews,
     DownloadsStatsOut,
@@ -24,6 +23,8 @@ from app.schemas.stats import (
     TopPostsOut,
     ViewsStatsOut,
 )
+from app.services import public
+from app.services.urls import cdn_url
 
 MOCK_IMAGE_COUNT = 12  # seed_mock_images.py가 만드는 이미지 수
 MOCK_PREFIX = "mock"
@@ -35,7 +36,7 @@ IMAGE_SIZES: list[tuple[int, int]] = [
     (6000, 4000), (4000, 5000), (9504, 6336), (6336, 9504), (6000, 3375), (4000, 4000),
 ]  # fmt: skip
 
-_CATEGORIES = [(1, "풍경"), (2, "인물"), (3, "거리"), (4, "야경")]
+CATEGORIES = [(1, "풍경"), (2, "인물"), (3, "거리"), (4, "야경")]
 _TITLES = [
     "제주 오름 일출", "을지로 골목", "한강 야경", "설악산 운해", "부산 감천마을", "서울숲의 오후",
     "남해 다랭이논", "광장시장 사람들", "인왕산에서 본 서울", "비 오는 종로", "가을 경주", "새벽 어시장",
@@ -100,7 +101,7 @@ def _dataset() -> tuple[_Post, ...]:
                 id=i + 1,
                 title=title,
                 body=f"{title}. 목업 본문입니다. 실제 데이터가 아닙니다.\n\n두 번째 문단.",
-                category_id=_CATEGORIES[i % len(_CATEGORIES)][0],
+                category_id=CATEGORIES[i % len(CATEGORIES)][0],
                 published_at=_BASE_TIME - timedelta(days=i * 2),
                 view_count=rng.randint(0, 5000),
                 allow_original_download=i % 3 == 0,
@@ -110,101 +111,38 @@ def _dataset() -> tuple[_Post, ...]:
     return tuple(posts)
 
 
-def _image_url(cdn_base_url: str, image: int, name: str) -> str:
-    return f"{cdn_base_url.rstrip('/')}/{MOCK_PREFIX}/{image}/{name}"
+def demo_posts() -> tuple["DemoPost", ...]:
+    """scripts/seed_demo_data.py가 DB에 넣는 데모 게시물(목업 이미지 사용)."""
+    return _dataset()
 
 
-def _category_name(category_id: int) -> str:
-    return dict(_CATEGORIES)[category_id]
+DemoPost = _Post
 
 
-def _post(post_id: int) -> _Post:
-    for p in _dataset():
-        if p.id == post_id:
-            return p
-    raise NotFound(f"게시물 {post_id}를 찾을 수 없습니다")
+# ── 공개 API (10·11단계 구현 전까지) ──────────────────────────
+# 목록·상세는 09단계에서 실제 구현됐으므로 조회수·원본 다운로드 목업도
+# 실제 DB의 공개 게시물 기준으로 동작한다.
 
 
-# ── 공개 API ────────────────────────────────────────────
+def record_view(session: Session, post_id: int) -> None:
+    public.require_public_post(session, post_id)  # 없는·비공개 게시물은 404. 숫자는 바꾸지 않는다.
 
 
-def categories() -> list[PublicCategory]:
-    return [PublicCategory(id=cid, name=name) for cid, name in _CATEGORIES]
-
-
-def list_posts(
-    cdn_base_url: str, *, category: int | None, q: str | None, page: int, size: int, sort: PublicSort
-) -> Page[PublicPostSummary]:
-    rows = list(_dataset())
-    if category is not None:
-        rows = [p for p in rows if p.category_id == category]
-    if q:
-        needle = q.lower()
-        rows = [p for p in rows if needle in p.title.lower() or needle in p.body.lower()]
-    if sort is PublicSort.VIEWS:
-        rows.sort(key=lambda p: (-p.view_count, -p.id))
-    else:
-        rows.sort(key=lambda p: (p.published_at, p.id), reverse=True)
-    window = rows[(page - 1) * size : page * size]
-    items = [
-        PublicPostSummary(
-            id=p.id,
-            title=p.title,
-            category_id=p.category_id,
-            category_name=_category_name(p.category_id),
-            thumb_url=_image_url(cdn_base_url, p.photos[0].image, "thumb.webp"),
-            photo_count=len(p.photos),
-            view_count=p.view_count,
-            published_at=p.published_at,
-        )
-        for p in window
-    ]
-    return Page(items=items, page=page, size=size, total=len(rows))
-
-
-def post_detail(cdn_base_url: str, post_id: int) -> PublicPostDetail:
-    p = _post(post_id)
-    photos = []
-    for ph in p.photos:
-        width, height = IMAGE_SIZES[ph.image]
-        photos.append(
-            PublicPhoto(
-                id=ph.id,
-                width=width,
-                height=height,
-                thumb_url=_image_url(cdn_base_url, ph.image, "thumb.webp"),
-                preview_url=_image_url(cdn_base_url, ph.image, "preview.webp"),
-                dzi_url=_image_url(cdn_base_url, ph.image, "photo.dzi"),
-                exif=ph.exif,
-                original_download_url=f"/api/photos/{ph.id}/original" if p.allow_original_download else None,
-            )
-        )
-    return PublicPostDetail(
-        id=p.id,
-        title=p.title,
-        body=p.body,
-        category_id=p.category_id,
-        category_name=_category_name(p.category_id),
-        view_count=p.view_count,
-        published_at=p.published_at,
-        allow_original_download=p.allow_original_download,
-        photos=photos,
-    )
-
-
-def record_view(post_id: int) -> None:
-    _post(post_id)  # 없는 게시물은 404. 목업은 숫자를 바꾸지 않는다.
-
-
-def original_download_url(cdn_base_url: str, photo_id: int) -> str:
-    """실제로는 원본의 10분짜리 Presigned URL. 목업은 미리보기 이미지로 보낸다."""
-    for p in _dataset():
-        for ph in p.photos:
-            if ph.id == photo_id:
-                if not p.allow_original_download:
-                    raise Forbidden("이 게시물은 원본 다운로드를 허용하지 않습니다")
-                return _image_url(cdn_base_url, ph.image, "preview.webp")
-    raise NotFound(f"사진 {photo_id}를 찾을 수 없습니다")
+def original_download_url(session: Session, cdn_base_url: str, photo_id: int) -> str:
+    """실제로는 원본의 10분짜리 Presigned URL. 목업은 같은 사진의 미리보기 이미지로 보낸다."""
+    row = session.execute(
+        select(Photo, Post)
+        .join(Post, Post.id == Photo.post_id)
+        .where(Photo.id == photo_id, Photo.status == PhotoStatus.READY, Post.status == PostStatus.PUBLISHED)
+    ).first()
+    if row is None:
+        raise NotFound(f"사진 {photo_id}를 찾을 수 없습니다")
+    photo, post = row
+    if not photo.preview_key:
+        raise NotFound(f"사진 {photo_id}를 찾을 수 없습니다")
+    if not post.allow_original_download:
+        raise Forbidden("이 게시물은 원본 다운로드를 허용하지 않습니다")
+    return cdn_url(cdn_base_url, photo.preview_key)
 
 
 # ── 관리자 통계 ──────────────────────────────────────────

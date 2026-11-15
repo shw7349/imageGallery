@@ -34,14 +34,14 @@ curl localhost:8000/healthz   # {"status":"ok","db":"ok"}
 
 `uv run pre-commit install`로 커밋 전 ruff·mypy 자동 실행을 켤 수 있다.
 
-## 프론트 개발용 목업 모드
+## 프론트 개발용 데모 데이터·목업 모드
 
 ```bash
-make up && make mock-images && make api-mock
+make up && make mock-images && make demo-data && make api-mock
 ```
 
-아직 구현 전인 엔드포인트(공개 목록·상세, 조회수, 원본 다운로드, 통계)가 계약대로 가짜 데이터를 돌려준다
-(`X-Mock: true` 헤더). 자세한 내용: `docs/api.md` 8-1.
+데모 게시물 36개(목업 이미지)가 실제 DB에 들어가고, 아직 구현 전인 엔드포인트는 계약대로 가짜 데이터를
+돌려준다(`X-Mock: true` 헤더). 자세한 내용: `docs/api.md` 8-1.
 
 ## 업로드 수동 테스트 (로컬 MinIO)
 

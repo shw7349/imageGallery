@@ -62,6 +62,10 @@ class Post(TimestampMixin, Base):
 # 공개 목록(최신 공개순) 조회용. DESC 표현식으로 선언해야 Alembic 비교가 DB 반영 결과와 일치한다.
 Index("ix_post_status_published_at", Post.status, Post.published_at.desc())
 
+# 공개 검색(ILIKE '%검색어%')용 트라이그램 GIN 인덱스(09단계). pg_trgm 확장 필요(초기 리비전에서 생성).
+Index("ix_post_title_trgm", Post.title, postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"})
+Index("ix_post_body_trgm", Post.body, postgresql_using="gin", postgresql_ops={"body": "gin_trgm_ops"})
+
 
 class Photo(TimestampMixin, Base):
     __tablename__ = "photo"

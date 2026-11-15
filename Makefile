@@ -5,7 +5,7 @@ SHELL := /bin/bash
 API_PORT ?= 8000
 UV ?= uv
 
-.PHONY: help env up down migrate revision api api-mock mock-images worker lint fmt typecheck test check openapi docker-build
+.PHONY: help env up down migrate revision api api-mock mock-images demo-data worker lint fmt typecheck test check openapi docker-build
 
 help: ## 명령 목록
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -36,7 +36,10 @@ api-mock: ## 프론트 개발용 목업 모드로 API 실행 (미구현 엔드�
 mock-images: ## 목업 이미지(썸네일·미리보기·딥줌 타일)를 로컬 MinIO에 생성
 	$(UV) run python scripts/seed_mock_images.py
 
-worker: ## 워커 실행 (07단계부터)
+demo-data: ## 데모 게시물 36개(목업 이미지 사용)를 로컬 DB에 넣기 (다시 만들기: make demo-data ARGS=--reset)
+	$(UV) run python scripts/seed_demo_data.py $(ARGS)
+
+worker: ## 사진 변환 워커 실행
 	$(UV) run python -m app.jobs.worker
 
 lint: ## ruff 검사 + 포맷 확인

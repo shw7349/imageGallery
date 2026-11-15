@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Response
 
-from app.api.deps import AppSettings
+from app.api.deps import DbSession
 from app.api.errors import problem_responses
-from app.api.mock import use_mock
-from app.mock import data as mock
+from app.api.public.cache import PUBLIC_CACHE
 from app.schemas.public import PublicCategory
+from app.services import public as service
 
 router = APIRouter()
 
@@ -13,8 +13,8 @@ router = APIRouter()
     "/categories",
     response_model=list[PublicCategory],
     summary="카테고리 목록",
-    responses=problem_responses(501),
+    responses=problem_responses(),
 )
-def list_categories(settings: AppSettings, response: Response) -> list[PublicCategory]:
-    use_mock(settings, response, "09")
-    return mock.categories()
+def list_categories(db: DbSession, response: Response) -> list[PublicCategory]:
+    response.headers["Cache-Control"] = PUBLIC_CACHE
+    return [PublicCategory.model_validate(c) for c in service.list_categories(db)]

@@ -119,9 +119,6 @@ ADMIN_ENDPOINTS: list[tuple[str, str, dict[str, Any] | None]] = [
     *NOT_IMPLEMENTED_ADMIN,
 ]
 NOT_IMPLEMENTED_PUBLIC: list[tuple[str, str]] = [
-    ("GET", "/api/categories"),
-    ("GET", "/api/posts"),
-    ("GET", "/api/posts/1"),
     ("POST", "/api/posts/1/views"),
     ("GET", "/api/photos/1/original"),
 ]
@@ -173,6 +170,7 @@ def test_contract_validation_runs_before_stub(admin: AdminClient, path: str, bod
         "/api/admin/stats/views?from=2026-11-01",
         "/api/posts?size=101",
         "/api/posts?sort=created",
+        "/api/posts?q=",
     ],
 )
 def test_contract_query_validation(admin: AdminClient, path: str) -> None:
