@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from app.models import PhotoStatus
-from app.services import events
+from app.storage.s3 import S3Storage
 from tests.conftest import AdminClient
 from tests.factories import insert_photo
 
@@ -79,24 +79,20 @@ def test_update_replaces_fields(admin: AdminClient, category_id: int) -> None:
     assert body["allowOriginalDownload"] is False  # PUT은 전체 교체
 
 
-def test_delete_publishes_event_with_s3_keys(
-    admin: AdminClient, category_id: int, engine: Engine, monkeypatch: pytest.MonkeyPatch
+def test_delete_removes_photos_and_s3_objects(
+    admin: AdminClient, category_id: int, engine: Engine, storage: S3Storage
 ) -> None:
-    received: list[events.PostDeleted] = []
-    monkeypatch.setattr(events, "_handlers", {})
-    events.subscribe(events.PostDeleted, received.append)
-
     post = _create(admin, category_id)
     photo_id = insert_photo(engine, post["id"])
+    key = f"originals/{post['id']}/factory/original.jpg"
+    derived = f"derived/{post['id']}/{photo_id}/thumb.webp"
+    storage.client.put_object(Bucket=storage.originals_bucket, Key=key, Body=b"x")
+    storage.client.put_object(Bucket=storage.derived_bucket, Key=derived, Body=b"x")
+
     assert admin.http.delete(f"{POSTS}/{post['id']}", headers=admin.headers()).status_code == 204
     assert admin.http.get(f"{POSTS}/{post['id']}").status_code == 404
-
-    assert len(received) == 1
-    event = received[0]
-    assert event.post_id == post["id"]
-    assert event.photo_ids == (photo_id,)
-    assert event.derived_prefixes == (f"derived/{post['id']}/{photo_id}/",)
-    assert len(event.original_keys) == 1
+    assert storage.head_object(storage.originals_bucket, key) is None
+    assert storage.head_object(storage.derived_bucket, derived) is None
 
 
 def test_delete_not_found(admin: AdminClient) -> None:

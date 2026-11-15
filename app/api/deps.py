@@ -14,6 +14,7 @@ from app.db import get_session
 from app.errors import AuthenticationRequired, Forbidden
 from app.models import AdminUser
 from app.services import auth as auth_service
+from app.storage.s3 import S3Storage
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
@@ -23,8 +24,14 @@ def get_settings_dep(request: Request) -> Settings:
     return settings
 
 
+def get_storage(request: Request) -> S3Storage:
+    storage: S3Storage = request.app.state.storage
+    return storage
+
+
 DbSession = Annotated[Session, Depends(get_session)]
 AppSettings = Annotated[Settings, Depends(get_settings_dep)]
+Storage = Annotated[S3Storage, Depends(get_storage)]
 
 
 @dataclass(frozen=True)

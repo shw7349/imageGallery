@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
-from app.api.deps import DbSession
+from app.api.deps import DbSession, Storage
 from app.api.errors import problem_responses
 from app.models import PostStatus
 from app.schemas.pagination import MAX_PAGE_SIZE, Page
@@ -118,10 +118,10 @@ def update_post(post_id: int, body: PostIn, db: DbSession) -> AdminPostDetail:
     "/{post_id}",
     summary="게시물 삭제 (사진 포함)",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses=problem_responses(401, 403, 404),
+    responses=problem_responses(401, 403, 404, 503),
 )
-def delete_post(post_id: int, db: DbSession) -> Response:
-    service.delete_post(db, post_id)
+def delete_post(post_id: int, db: DbSession, storage: Storage) -> Response:
+    service.delete_post(db, storage, post_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

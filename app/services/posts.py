@@ -11,7 +11,8 @@ from app.db import transaction
 from app.errors import Conflict, NotFound, ValidationFailed
 from app.models import Category, Photo, PhotoStatus, Post, PostStatus
 from app.schemas.posts import PostSort
-from app.services import events
+from app.services import uploads
+from app.storage.s3 import S3Storage
 
 
 @dataclass(frozen=True)
@@ -161,15 +162,13 @@ def reorder_photos(session: Session, post_id: int, photo_ids: list[int]) -> Post
     return get_post(session, post_id)
 
 
-def delete_post(session: Session, post_id: int) -> None:
-    """DB에서 게시물·사진을 지우고(cascade), 커밋 후 PostDeleted 이벤트로 S3 정리를 요청한다."""
+def delete_post(session: Session, storage: S3Storage, post_id: int) -> None:
+    """사진 S3 데이터(원본·파생물·진행 중 업로드)를 먼저 지우고 DB에서 게시물·사진을 지운다(cascade).
+
+    S3 삭제가 중간에 실패하면 DB는 롤백되어 게시물이 남으므로 다시 삭제하면 된다(S3 삭제는 멱등).
+    """
     with transaction(session):
         post = _load(session, post_id, for_update=True)
-        event = events.PostDeleted(
-            post_id=post.id,
-            photo_ids=tuple(p.id for p in post.photos),
-            original_keys=tuple(p.original_key for p in post.photos),
-            derived_prefixes=tuple(f"derived/{post.id}/{p.id}/" for p in post.photos),
-        )
+        for photo in post.photos:
+            uploads.delete_photo_files(storage, photo)
         session.delete(post)
-    events.publish(event)

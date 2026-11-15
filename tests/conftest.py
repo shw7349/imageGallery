@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.config import Environment, Settings
 from app.main import create_app
 from app.services import auth as auth_service
+from app.storage.s3 import S3Storage
 
 
 def _test_database_url(base: Settings) -> str:
@@ -70,6 +71,8 @@ def settings() -> Settings:
             "s3_originals_bucket": "gallery-test-originals",
             "s3_derived_bucket": "gallery-test-derived",
             "session_secret": SecretStr(secrets.token_urlsafe(48)),
+            # S3 최소 파트 크기(5MB). 테스트 파일을 작게 유지한다.
+            "upload_part_size": 5 * 1024 * 1024,
         }
     )
 
@@ -87,15 +90,31 @@ def _truncate_all(engine: Engine) -> None:
         conn.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
 
 
+@pytest.fixture(scope="session")
+def storage(settings: Settings) -> S3Storage:
+    """테스트 버킷(gallery-test-*)을 쓰는 실제 MinIO 클라이언트."""
+    return S3Storage(settings)
+
+
+def _clean_buckets(storage: S3Storage) -> None:
+    storage.abort_all_uploads()
+    for bucket, prefix in (
+        (storage.originals_bucket, "originals/"),
+        (storage.derived_bucket, "derived/"),
+    ):
+        storage.delete_prefix(bucket, prefix)
+
+
 @pytest.fixture
-def client(app: FastAPI, engine: Engine) -> Iterator[TestClient]:
-    """앱은 자체 커넥션으로 커밋하므로 테스트가 끝나면 모든 테이블을 비운다.
+def client(app: FastAPI, engine: Engine, storage: S3Storage) -> Iterator[TestClient]:
+    """앱은 자체 커넥션으로 커밋하므로 테스트가 끝나면 모든 테이블과 테스트 버킷을 비운다.
 
     세션 쿠키가 Secure라서 https 기준 URL을 쓴다.
     """
     with TestClient(app, base_url="https://testserver") as c:
         yield c
     _truncate_all(engine)
+    _clean_buckets(storage)
 
 
 @dataclass(frozen=True)

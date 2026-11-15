@@ -19,6 +19,7 @@ from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
 from app.logging import request_id_var, setup_logging
 from app.schemas.problem import Problem
+from app.storage.s3 import S3Storage
 
 logger = logging.getLogger("app.request")
 
@@ -66,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.engine = create_db_engine(settings)
         app.state.session_factory = create_session_factory(app.state.engine)
+        app.state.storage = S3Storage(settings)
         try:
             yield
         finally:

@@ -21,6 +21,7 @@ from app.errors import (
     TooManyRequests,
     ValidationFailed,
 )
+from app.storage.s3 import StorageError
 
 logger = logging.getLogger(__name__)
 
@@ -118,8 +119,21 @@ async def _http_error(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def _storage_error(request: Request, exc: Exception) -> JSONResponse:
+    # 원인(키·S3 코드)은 로그에만 남기고 응답에는 일반 문구만 준다.
+    logger.error("storage error", exc_info=exc, extra={"path": request.url.path})
+    return problem(
+        503,
+        code="storage_unavailable",
+        title="파일 저장소에 일시적인 문제가 있습니다. 잠시 후 다시 시도하세요",
+        instance=request.url.path,
+        headers={"Retry-After": "5"},
+    )
+
+
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(DomainError, _domain_error)
+    app.add_exception_handler(StorageError, _storage_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(StarletteHTTPException, _http_error)
 
@@ -138,6 +152,7 @@ def problem_responses(*statuses: int) -> dict[int | str, ProblemExample]:
         422: "입력값 검증 실패",
         429: "요청 과다 (Retry-After 헤더)",
         501: "아직 구현되지 않음",
+        503: "파일 저장소(S3) 일시 장애 (Retry-After 헤더)",
     }
     return {
         s: {

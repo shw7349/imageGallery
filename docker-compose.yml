@@ -28,6 +28,10 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      # 브라우저 직접 업로드(Presigned PUT)용 CORS. MinIO는 버킷별 CORS(PutBucketCors)를 지원하지 않아
+      # 서버 전역으로 설정한다. ETag 헤더는 기본으로 노출된다(tests/api/test_admin_uploads.py에서 확인).
+      # 운영 S3는 scripts/s3_cors.json을 Terraform(13단계)으로 적용한다.
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173"
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"

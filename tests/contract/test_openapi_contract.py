@@ -99,6 +99,13 @@ def test_every_admin_route_requires_admin(app: FastAPI) -> None:
 
 # 미구현(501) 엔드포인트: 유효한 요청을 보내면 501 problem+json
 NOT_IMPLEMENTED_ADMIN: list[tuple[str, str, dict[str, Any] | None]] = [
+    ("POST", "/api/admin/photos/1/retry", None),
+    ("GET", "/api/admin/stats/views?from=2026-11-01&to=2026-11-30", None),
+    ("GET", "/api/admin/stats/top?days=7", None),
+    ("GET", "/api/admin/stats/downloads?days=30", None),
+]
+# 인증 확인용: 구현 여부와 무관하게 로그인 없이는 401
+ADMIN_ENDPOINTS: list[tuple[str, str, dict[str, Any] | None]] = [
     (
         "POST",
         "/api/admin/posts/1/photos",
@@ -109,10 +116,7 @@ NOT_IMPLEMENTED_ADMIN: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", "/api/admin/photos/1/complete", {"parts": [{"partNumber": 1, "etag": '"abc"'}]}),
     ("GET", "/api/admin/photos/1", None),
     ("DELETE", "/api/admin/photos/1", None),
-    ("POST", "/api/admin/photos/1/retry", None),
-    ("GET", "/api/admin/stats/views?from=2026-11-01&to=2026-11-30", None),
-    ("GET", "/api/admin/stats/top?days=7", None),
-    ("GET", "/api/admin/stats/downloads?days=30", None),
+    *NOT_IMPLEMENTED_ADMIN,
 ]
 NOT_IMPLEMENTED_PUBLIC: list[tuple[str, str]] = [
     ("GET", "/api/categories"),
@@ -133,8 +137,8 @@ def test_admin_stubs_return_501(
     assert res.json()["code"] == "not_implemented"
 
 
-@pytest.mark.parametrize(("method", "path", "body"), NOT_IMPLEMENTED_ADMIN)
-def test_admin_stubs_still_require_login(
+@pytest.mark.parametrize(("method", "path", "body"), ADMIN_ENDPOINTS)
+def test_admin_endpoints_require_login(
     client: TestClient, method: str, path: str, body: dict[str, Any] | None
 ) -> None:
     assert client.request(method, path, json=body).status_code == 401

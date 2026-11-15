@@ -78,6 +78,8 @@ class Photo(TimestampMixin, Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     content_type: Mapped[str] = mapped_column(String(100))
     s3_upload_id: Mapped[str | None] = mapped_column(String(1024))
+    # 업로드 시작 시점의 파트 크기. 설정이 바뀌어도 진행 중 업로드의 파트 계산이 어긋나지 않게 저장한다.
+    upload_part_size: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[PhotoStatus] = mapped_column(
         str_enum(PhotoStatus, "status"),
         default=PhotoStatus.UPLOADING,

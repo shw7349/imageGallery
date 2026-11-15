@@ -34,6 +34,15 @@ curl localhost:8000/healthz   # {"status":"ok","db":"ok"}
 
 `uv run pre-commit install`로 커밋 전 ruff·mypy 자동 실행을 켤 수 있다.
 
+## 업로드 수동 테스트 (로컬 MinIO)
+
+```bash
+uv run python scripts/make_big_file.py --size 300M /tmp/big.tif     # 300MB TIFF 생성
+export GALLERY_ADMIN_PASSWORD=...                                   # create-admin으로 만든 계정
+uv run python scripts/upload_test.py /tmp/big.tif --post-id 1 --fail-after-parts 5   # 중간에 끊기
+uv run python scripts/upload_test.py /tmp/big.tif --post-id 1                        # 이어 올리기
+```
+
 ## 참고
 
 - macOS 로컬은 `pyvips-binary`(libvips 내장, 개발 의존성)를 쓰고, Docker 이미지는 Debian `libvips42`를 쓴다.
