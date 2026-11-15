@@ -10,11 +10,14 @@ import secrets
 from collections.abc import Iterator
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import create_engine, text
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.orm import Session
 
 from app.config import Environment, Settings
 from app.main import create_app
@@ -30,7 +33,14 @@ def _test_database_url(base: Settings) -> str:
     return url.set(database=f"{url.database}_test").render_as_string(hide_password=False)
 
 
-def _recreate_database(url: str) -> None:
+def alembic_config(database_url: str) -> Config:
+    cfg = Config("alembic.ini")
+    cfg.attributes["database_url"] = database_url
+    cfg.attributes["skip_logging_config"] = True
+    return cfg
+
+
+def recreate_database(url: str) -> None:
     target = make_url(url)
     name = target.database
     if not name or not name.endswith("_test"):
@@ -49,7 +59,8 @@ def _recreate_database(url: str) -> None:
 def settings() -> Settings:
     base = Settings()  # 필수 값은 .env·환경변수에서 주입
     test_url = _test_database_url(base)
-    _recreate_database(test_url)
+    recreate_database(test_url)
+    command.upgrade(alembic_config(test_url), "head")
     return base.model_copy(
         update={
             "env": Environment.TEST,
@@ -70,3 +81,23 @@ def app(settings: Settings) -> FastAPI:
 def client(app: FastAPI) -> Iterator[TestClient]:
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="session")
+def engine(settings: Settings) -> Iterator[Engine]:
+    eng = create_engine(settings.database_url)
+    yield eng
+    eng.dispose()
+
+
+@pytest.fixture
+def db(engine: Engine) -> Iterator[Session]:
+    """테스트마다 바깥 트랜잭션을 열고 끝나면 롤백한다. 코드 안의 commit은 SAVEPOINT로 처리된다."""
+    with engine.connect() as conn:
+        outer = conn.begin()
+        session = Session(bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False)
+        try:
+            yield session
+        finally:
+            session.close()
+            outer.rollback()
