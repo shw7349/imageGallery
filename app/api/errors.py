@@ -129,7 +129,20 @@ async def _storage_error(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def unexpected_error_response(request: Request, exc: Exception) -> JSONResponse:
+    """처리되지 않은 예외도 계약대로 problem+json으로 응답한다. 원인은 로그에만 남긴다."""
+    logger.error("unhandled error", exc_info=exc, extra={"path": request.url.path})
+    return problem(
+        500,
+        code="internal_error",
+        title="서버 오류가 발생했습니다. 잠시 후 다시 시도하세요",
+        instance=request.url.path,
+    )
+
+
 def register_error_handlers(app: FastAPI) -> None:
+    # 보통은 app.main의 요청 미들웨어가 먼저 처리한다(요청 ID 포함). 여기는 그 바깥에서 난 오류용.
+    app.add_exception_handler(Exception, unexpected_error_response)
     app.add_exception_handler(DomainError, _domain_error)
     app.add_exception_handler(StorageError, _storage_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
@@ -148,7 +161,9 @@ def problem_responses(*statuses: int) -> dict[int | str, ProblemExample]:
         404: "대상 없음",
         409: "상태 충돌",
         422: "입력값 검증 실패",
+        413: "요청 본문이 너무 큼",
         429: "요청 과다 (Retry-After 헤더)",
+        500: "서버 오류",
         503: "파일 저장소(S3) 일시 장애 (Retry-After 헤더)",
     }
     return {

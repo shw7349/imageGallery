@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import RedirectResponse
 
-from app.api.deps import AppSettings, DbSession, Storage
+from app.api.deps import AppSettings, DbSession, Storage, client_ip
 from app.api.errors import problem_responses
 from app.api.visitor import get_visitor, set_visitor_cookie
 from app.services import downloads as service
+from app.services.views import visitor_hash
 
 router = APIRouter()
 
@@ -28,7 +29,13 @@ def download_original(
     photo_id: int, request: Request, db: DbSession, storage: Storage, settings: AppSettings
 ) -> Response:
     visitor = get_visitor(request, settings)
-    url = service.original_url(db, storage, photo_id, visitor.hash, settings.downloads_per_hour)
+    limits = service.DownloadLimits(
+        per_visitor_hour=settings.downloads_per_hour,
+        per_ip_hour=settings.downloads_per_hour_per_ip,
+        total_per_day=settings.downloads_per_day_total,
+    )
+    ip_hash = visitor_hash(settings.session_secret.get_secret_value(), client_ip(request))
+    url = service.original_url(db, storage, photo_id, visitor.hash, ip_hash, limits)
     # 서명된 URL은 캐시되면 안 된다(만료·방문자별 기록)
     response = RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store"})
     set_visitor_cookie(response, visitor)

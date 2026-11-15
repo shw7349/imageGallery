@@ -15,15 +15,57 @@ from app.storage.s3 import S3Storage
 logger = logging.getLogger(__name__)
 
 LIMIT_WINDOW = timedelta(hours=1)
+DAY = timedelta(days=1)
 TOP_LIMIT = 50
 
 
-def original_url(session: Session, storage: S3Storage, photo_id: int, visitor: str, per_hour: int) -> str:
+@dataclass(frozen=True)
+class DownloadLimits:
+    per_visitor_hour: int
+    per_ip_hour: int
+    total_per_day: int
+
+
+def _check_limits(session: Session, visitor: str, ip_hash: str, limits: DownloadLimits) -> None:
+    """방문자(쿠키)·IP·사이트 전체 순으로 확인. 쿠키를 지워도 IP 제한과 전체 상한에는 걸린다."""
+    hour_ago = func.now() - LIMIT_WINDOW
+    for column, value, limit in (
+        (DownloadLog.visitor_hash, visitor, limits.per_visitor_hour),
+        (DownloadLog.ip_hash, ip_hash, limits.per_ip_hour),
+    ):
+        count, oldest = session.execute(
+            select(func.count(), func.min(DownloadLog.created_at)).where(
+                column == value, DownloadLog.created_at > hour_ago
+            )
+        ).one()
+        if int(count) >= limit:
+            raise TooManyRequests(
+                f"원본 다운로드는 1시간에 {limit}회까지입니다. 잠시 후 다시 시도하세요",
+                retry_after_seconds=_retry_after(oldest),
+            )
+    today_total = session.scalar(
+        select(func.count()).select_from(DownloadLog).where(DownloadLog.created_at > func.now() - DAY)
+    )
+    if int(today_total or 0) >= limits.total_per_day:
+        logger.error("daily download cap reached", extra={"cap": limits.total_per_day})
+        raise TooManyRequests(
+            "오늘 원본 다운로드 한도에 도달했습니다. 내일 다시 시도하세요", retry_after_seconds=3600
+        )
+
+
+def original_url(
+    session: Session,
+    storage: S3Storage,
+    photo_id: int,
+    visitor: str,
+    ip_hash: str,
+    limits: DownloadLimits,
+) -> str:
     """조건: 게시물 PUBLISHED + 원본 다운로드 허용 + 사진 READY.
 
     - 없거나 비공개·처리 전 사진: 404 (존재 여부를 드러내지 않는다)
     - 공개됐지만 다운로드 비허용: 403
-    - 방문자당 1시간 per_hour회 초과: 429
+    - 방문자·IP 시간당 한도 또는 사이트 하루 상한 초과: 429
     """
     with transaction(session):
         row = session.execute(
@@ -39,18 +81,8 @@ def original_url(session: Session, storage: S3Storage, photo_id: int, visitor: s
         if not post.allow_original_download:
             raise Forbidden("이 게시물은 원본 다운로드를 허용하지 않습니다")
 
-        recent = session.execute(
-            select(func.count(), func.min(DownloadLog.created_at)).where(
-                DownloadLog.visitor_hash == visitor,
-                DownloadLog.created_at > func.now() - LIMIT_WINDOW,
-            )
-        ).one()
-        if int(recent[0]) >= per_hour:
-            raise TooManyRequests(
-                f"원본 다운로드는 1시간에 {per_hour}회까지입니다. 잠시 후 다시 시도하세요",
-                retry_after_seconds=_retry_after(recent[1]),
-            )
-        session.add(DownloadLog(photo_id=photo.id, visitor_hash=visitor))
+        _check_limits(session, visitor, ip_hash, limits)
+        session.add(DownloadLog(photo_id=photo.id, visitor_hash=visitor, ip_hash=ip_hash))
         key, filename = photo.original_key, photo.original_filename
 
     url = storage.presign_get(storage.originals_bucket, key, download_filename=filename)

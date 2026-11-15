@@ -32,9 +32,14 @@ class DownloadLog(Base):
         # 11단계: 방문자별 시간당 다운로드 횟수 제한 조회
         Index(None, "visitor_hash", "created_at"),
         Index(None, "photo_id"),
+        # IP별 시간당 제한, 사이트 전체 하루 상한 조회
+        Index(None, "ip_hash", "created_at"),
+        Index(None, "created_at"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     photo_id: Mapped[int] = mapped_column(ForeignKey("photo.id", ondelete="CASCADE"))
     visitor_hash: Mapped[str] = mapped_column(String(64))
+    # HMAC(SESSION_SECRET, IP). 쿠키를 지워 방문자 제한을 우회하는 것을 막는다(IP 원문은 저장하지 않음).
+    ip_hash: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(utc_timestamp(), server_default=func.now())

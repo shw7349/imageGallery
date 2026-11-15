@@ -23,6 +23,9 @@ ENV PATH=/opt/venv/bin:$PATH \
 COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY app ./app
+# 배포 시 같은 이미지로 마이그레이션을 실행한다: docker run ... gallery alembic upgrade head
+COPY alembic.ini ./
+COPY migrations ./migrations
 USER app
 EXPOSE 8000
 # 워커: docker run ... gallery python -m app.jobs.worker

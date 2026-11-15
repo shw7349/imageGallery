@@ -13,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health
 from app.api.admin import build_admin_router
-from app.api.errors import problem_responses, register_error_handlers
+from app.api.body_limit import MaxBodySizeMiddleware
+from app.api.errors import problem_responses, register_error_handlers, unexpected_error_response
 from app.api.public import build_public_router
 from app.api.ratelimit import RateLimiter
 from app.config import Settings, get_settings
@@ -86,7 +87,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         token = request_id_var.set(request_id)
         started = time.perf_counter()
         try:
-            response = await call_next(request)
+            try:
+                response = await call_next(request)
+            except Exception as exc:  # 처리되지 않은 예외: 요청 ID가 살아 있는 여기서 로그·응답을 만든다
+                response = await unexpected_error_response(request, exc)
             response.headers[REQUEST_ID_HEADER] = request_id
             if request.url.path.startswith("/api/admin"):
                 response.headers["Cache-Control"] = "no-store"
@@ -104,6 +108,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return response
         finally:
             request_id_var.reset(token)
+
+    app.add_middleware(MaxBodySizeMiddleware, max_bytes=settings.max_request_body_bytes)
 
     # CORS는 미들웨어 중 가장 바깥에서 처리되도록 마지막에 등록한다.
     app.add_middleware(

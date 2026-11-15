@@ -149,3 +149,61 @@ def test_content_disposition_is_safe(storage: S3Storage, name: str) -> None:
     ascii_part = disposition.split('filename="')[1].split('"')[0]
     assert ascii_part.isascii() and '"' not in ascii_part
     assert f"filename*=UTF-8''{quote(name)}" in disposition
+
+
+# ── 제한 우회 방지 ──────────────────────────────────────
+
+
+def _limited_app(settings: Settings, **limits: int) -> TestClient:
+    return TestClient(create_app(settings.model_copy(update=limits)), base_url="https://testserver")
+
+
+def test_clearing_cookies_does_not_bypass_ip_limit(
+    settings: Settings, engine: Engine, storage: S3Storage
+) -> None:
+    """회귀: 쿠키 없이 요청하면 매번 새 방문자가 되어 제한 없이 내려받을 수 있었다."""
+    try:
+        with _limited_app(settings, downloads_per_hour=2, downloads_per_hour_per_ip=5) as c:
+            photo, _ = _original(engine, storage)
+            codes = []
+            for _ in range(8):
+                c.cookies.clear()
+                codes.append(_get(c, photo).status_code)
+    finally:
+        _truncate_all(engine)
+        _clean_buckets(storage)
+    assert codes == [302] * 5 + [429] * 3
+    assert _logs(engine) == 0  # truncate 확인
+
+
+def test_daily_total_cap(settings: Settings, engine: Engine, storage: S3Storage) -> None:
+    try:
+        with _limited_app(settings, downloads_per_day_total=3) as c:
+            photo, _ = _original(engine, storage)
+            with Session(engine) as s:  # 다른 방문자·다른 IP의 기록 3건(그중 1건은 25시간 전)
+                s.add_all(
+                    DownloadLog(photo_id=photo, visitor_hash=f"v{i}", ip_hash=f"ip{i}") for i in range(3)
+                )
+                s.commit()
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "UPDATE download_log SET created_at = now() - interval '25 hours' "
+                        "WHERE visitor_hash = 'v0'"
+                    )
+                )
+            first = _get(c, photo)  # 최근 24시간 2건 → 통과(3건째)
+            blocked = _get(c, photo)  # 상한 도달
+    finally:
+        _truncate_all(engine)
+        _clean_buckets(storage)
+    assert first.status_code == 302
+    assert blocked.status_code == 429 and blocked.json()["code"] == "too_many_requests"
+
+
+def test_ip_is_stored_hashed(client: TestClient, engine: Engine, storage: S3Storage) -> None:
+    photo, _ = _original(engine, storage)
+    _get(client, photo)
+    with Session(engine) as s:
+        ip_hash = s.scalar(select(DownloadLog.ip_hash))
+    assert ip_hash and len(ip_hash) == 64 and "." not in ip_hash

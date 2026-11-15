@@ -46,7 +46,10 @@ class Settings(BaseSettings):
     # 비우면 제한 없음(로컬 개발용). 운영(ENV=prod)에서는 반드시 설정해야 한다.
     admin_hosts: Annotated[list[str], NoDecode] = Field(default_factory=list)
     session_max_age_seconds: int = Field(default=12 * 3600, ge=60)
+    # 로그인 잠금: 같은 IP에서 login_lock_seconds 안에 login_max_failures번 실패하면 그 IP만 잠근다.
+    # 사용자명 전체 잠금은 여러 IP를 쓰는 대입 공격용 안전장치(임계값이 높아 남이 관리자를 쉽게 잠글 수 없다).
     login_max_failures: int = Field(default=5, ge=1)
+    login_max_failures_per_username: int = Field(default=100, ge=1)
     login_lock_seconds: int = Field(default=15 * 60, ge=1)
 
     # 업로드 (06단계). 파트 크기 16MB, 최대 파일 크기 1GB. S3 최소 파트 크기는 5MB(마지막 파트 제외).
@@ -59,6 +62,14 @@ class Settings(BaseSettings):
     view_dedupe_retention_days: int = Field(default=30, ge=2)
     # 원본 다운로드(11단계): 방문자(vid)당 1시간 최대 횟수
     downloads_per_hour: int = Field(default=20, ge=1)
+    # 쿠키를 지우면 방문자 제한이 초기화되므로 IP 기준 제한과 사이트 전체 하루 상한을 함께 둔다.
+    # 하루 상한은 전송 요금 폭주를 막는 차단기다(300MB × 500회 = 150GB).
+    downloads_per_hour_per_ip: int = Field(default=40, ge=1)
+    downloads_per_day_total: int = Field(default=500, ge=1)
+
+    # 요청 본문 최대 크기. 사진은 S3로 직접 올리므로 API가 받는 본문은 JSON뿐이다
+    # (가장 큰 정상 요청: 파트 1만 개의 업로드 완료 ≈ 700KB).
+    max_request_body_bytes: int = Field(default=1024 * 1024, ge=1024)
 
     # 워커·작업 큐 (07단계)
     worker_concurrency: int = Field(default=1, ge=1, le=8)
@@ -86,9 +97,17 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
-    def _prod_requires_admin_hosts(self) -> "Settings":
-        if self.env is Environment.PROD and not self.admin_hosts:
+    def _prod_requirements(self) -> "Settings":
+        if self.env is not Environment.PROD:
+            return self
+        if not self.admin_hosts:
             raise ValueError("운영(ENV=prod)에서는 ADMIN_HOSTS(관리자 전용 도메인)를 설정해야 합니다")
+        secret = self.session_secret.get_secret_value()
+        if "change-me" in secret.lower() or len(set(secret)) < 12:
+            raise ValueError(
+                "운영(ENV=prod)에서는 예시·단순한 SESSION_SECRET을 쓸 수 없습니다. "
+                'python3 -c "import secrets; print(secrets.token_urlsafe(48))"로 새로 만드세요'
+            )
         return self
 
     @field_validator("cors_origins", mode="before")

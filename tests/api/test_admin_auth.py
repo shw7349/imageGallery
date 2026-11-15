@@ -103,17 +103,41 @@ def _policy() -> auth_service.LockPolicy:
     return auth_service.LockPolicy(max_failures=5, window=timedelta(minutes=15))
 
 
-def test_success_resets_username_counter(db: Session) -> None:
+def test_success_resets_ip_counter(db: Session) -> None:
     auth_service.create_admin(db, "owner", "correct-password-123")
-    ips = iter(f"10.0.0.{i}" for i in range(1, 100))  # IP 잠금과 분리하기 위해 매번 다른 IP
+    ip = "10.0.0.1"
     for _ in range(4):
         with pytest.raises(InvalidCredentials):
-            auth_service.authenticate(db, "owner", "bad", next(ips), _policy())
-    auth_service.authenticate(db, "owner", "correct-password-123", next(ips), _policy())
-    for _ in range(4):
+            auth_service.authenticate(db, "owner", "bad", ip, _policy())
+    auth_service.authenticate(db, "owner", "correct-password-123", ip, _policy())
+    for _ in range(4):  # 성공 후에는 다시 5회 기회
         with pytest.raises(InvalidCredentials):
-            auth_service.authenticate(db, "owner", "bad", next(ips), _policy())
-    assert auth_service.authenticate(db, "owner", "correct-password-123", next(ips), _policy())
+            auth_service.authenticate(db, "owner", "bad", ip, _policy())
+    assert auth_service.authenticate(db, "owner", "correct-password-123", ip, _policy())
+
+
+def test_attacker_on_another_ip_cannot_lock_out_admin(db: Session) -> None:
+    """회귀: 예전에는 누구든 관리자 이름으로 5번 실패하면 관리자 본인도 15분간 잠겼다."""
+    auth_service.create_admin(db, "owner", "correct-password-123")
+    for _ in range(5):
+        with pytest.raises(InvalidCredentials):
+            auth_service.authenticate(db, "owner", "guess", "203.0.113.9", _policy())
+    with pytest.raises(TooManyRequests):  # 공격자 IP는 잠긴다
+        auth_service.authenticate(db, "owner", "guess", "203.0.113.9", _policy())
+    # 관리자는 자기 IP에서 정상 로그인
+    assert auth_service.authenticate(db, "owner", "correct-password-123", "198.51.100.7", _policy())
+
+
+def test_distributed_guessing_hits_username_cap(db: Session) -> None:
+    auth_service.create_admin(db, "owner", "correct-password-123")
+    policy = auth_service.LockPolicy(
+        max_failures=5, window=timedelta(minutes=15), max_failures_per_username=8
+    )
+    for i in range(8):  # IP마다 1번씩: IP 잠금에는 안 걸린다
+        with pytest.raises(InvalidCredentials):
+            auth_service.authenticate(db, "owner", "guess", f"203.0.113.{i}", policy)
+    with pytest.raises(TooManyRequests):
+        auth_service.authenticate(db, "owner", "correct-password-123", "198.51.100.7", policy)
 
 
 def test_old_failures_outside_window_are_ignored(db: Session) -> None:

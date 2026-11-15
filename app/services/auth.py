@@ -26,12 +26,17 @@ _DUMMY_HASH = _hasher.hash("dummy-password-for-timing-equalization")
 
 @dataclass(frozen=True)
 class LockPolicy:
-    max_failures: int
+    max_failures: int  # IP당
     window: timedelta
+    max_failures_per_username: int = 100
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "LockPolicy":
-        return cls(settings.login_max_failures, timedelta(seconds=settings.login_lock_seconds))
+        return cls(
+            max_failures=settings.login_max_failures,
+            window=timedelta(seconds=settings.login_lock_seconds),
+            max_failures_per_username=settings.login_max_failures_per_username,
+        )
 
 
 def hash_password(password: str) -> str:
@@ -61,20 +66,27 @@ def _failures_since(
 
 
 def _check_lock(session: Session, username: str, ip: str, policy: LockPolicy, now: datetime) -> None:
+    """IP 기준으로 잠근다. 다른 IP의 공격자가 실패를 쌓아도 관리자의 IP는 잠기지 않는다.
+
+    - IP: 그 IP의 마지막 성공 이후, 시간 창 안의 실패가 max_failures 이상이면 그 IP만 잠금
+    - 사용자명: 여러 IP를 쓰는 대입 공격용 안전장치. 임계값(max_failures_per_username)이 높다
+    """
     window_start = now - policy.window
-    last_success = session.scalar(
+    last_success_from_ip = session.scalar(
         select(func.max(LoginAttempt.created_at)).where(
-            LoginAttempt.username == username, LoginAttempt.succeeded.is_(True)
+            LoginAttempt.ip == ip, LoginAttempt.succeeded.is_(True)
         )
     )
-    # 사용자명 기준: 마지막 성공 이후의 실패만 센다(정상 로그인 후에는 다시 5회 기회).
-    user_since = max(window_start, last_success) if last_success else window_start
+    ip_since = max(window_start, last_success_from_ip) if last_success_from_ip else window_start
     checks = (
-        _failures_since(session, LoginAttempt.username == username, user_since),
-        _failures_since(session, LoginAttempt.ip == ip, window_start),
+        (_failures_since(session, LoginAttempt.ip == ip, ip_since), policy.max_failures),
+        (
+            _failures_since(session, LoginAttempt.username == username, window_start),
+            policy.max_failures_per_username,
+        ),
     )
-    for count, oldest in checks:
-        if count >= policy.max_failures and oldest is not None:
+    for (count, oldest), limit in checks:
+        if count >= limit and oldest is not None:
             retry = max(1, math.ceil((oldest + policy.window - now).total_seconds()))
             raise TooManyRequests(
                 "로그인 실패가 많아 잠시 잠겼습니다. 나중에 다시 시도하세요", retry_after_seconds=retry
