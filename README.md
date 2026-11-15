@@ -5,4 +5,36 @@
 
 - 문서 안내: [docs/README.md](docs/README.md)
 - 프로젝트 규칙: [.claude/CLAUDE.md](.claude/CLAUDE.md)
-- 실행 순서: [docs/guide/roadmap.md](docs/guide/roadmap.md) — `./scripts/run-step.sh 01`부터
+- 실행 순서: [docs/guide/roadmap.md](docs/guide/roadmap.md) · 대화용 명령: [docs/guide/commands.md](docs/guide/commands.md)
+
+## 5분 로컬 실행
+
+필요한 것: [uv](https://docs.astral.sh/uv/), Docker Desktop(실행 중), make. 설치는 [docs/guide/setup.md](docs/guide/setup.md).
+
+```bash
+uv sync                 # Python 3.12 + 의존성 설치 (.venv)
+make up                 # Postgres + MinIO 시작, .env 생성, 버킷 생성
+make api                # http://127.0.0.1:8000  (포트 변경: make api API_PORT=8001)
+curl localhost:8000/healthz   # {"status":"ok","db":"ok"}
+```
+
+- Swagger UI: http://127.0.0.1:8000/docs
+- MinIO 콘솔: http://127.0.0.1:9001 (minioadmin / minioadmin, 로컬 전용)
+
+## 자주 쓰는 명령
+
+| 명령 | 설명 |
+|---|---|
+| `make check` | lint + typecheck + test (커밋 전 필수, `make up` 필요) |
+| `make fmt` | 자동 포맷 |
+| `make openapi` | `docs/openapi.json` 갱신 |
+| `make docker-build` | linux/arm64 이미지 빌드 + pyvips 확인 |
+| `make down` | 개발 환경 중지 (데이터 삭제는 `docker compose down -v`) |
+| `make help` | 전체 목록 |
+
+`uv run pre-commit install`로 커밋 전 ruff·mypy 자동 실행을 켤 수 있다.
+
+## 참고
+
+- macOS 로컬은 `pyvips-binary`(libvips 내장, 개발 의존성)를 쓰고, Docker 이미지는 Debian `libvips42`를 쓴다.
+- 로컬 MinIO는 공식 `minio/minio` 이미지의 Docker Hub 배포 중단으로 `cgr.dev/chainguard/minio`를 쓴다.

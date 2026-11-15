@@ -1,0 +1,39 @@
+# 로컬 개발 환경: Postgres + MinIO. 실행: make up
+name: gallery
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: gallery
+      POSTGRES_PASSWORD: gallery
+      POSTGRES_DB: gallery
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gallery -d gallery"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # 공식 minio/minio 이미지는 Docker Hub 배포가 중단되어 Chainguard 빌드를 사용한다(로컬 개발 전용).
+  # 버킷은 `make up`이 scripts/dev_create_buckets.py로 생성한다.
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    user: "0:0"  # 이름 있는 볼륨에 쓰기 위해 (로컬 전용)
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - miniodata:/data
+
+volumes:
+  pgdata:
+  miniodata:
