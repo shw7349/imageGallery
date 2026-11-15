@@ -37,15 +37,6 @@ def test_implemented_endpoints_are_real_even_in_mock_mode(mock_client: TestClien
     assert [p["id"] for p in res.json()["items"]] == [post]
 
 
-def test_view_mock_uses_real_public_posts(mock_client: TestClient, engine: Engine) -> None:
-    cat = insert_category(engine, "풍경")
-    post = insert_post(engine, cat)
-    insert_photo(engine, post)
-    res = mock_client.post(f"/api/posts/{post}/views")
-    assert res.status_code == 204 and res.headers["x-mock"] == "true"
-    assert mock_client.post("/api/posts/999/views").status_code == 404
-
-
 def test_original_mock_redirects_to_preview(
     mock_client: TestClient, engine: Engine, settings: Settings
 ) -> None:
@@ -62,22 +53,16 @@ def test_original_mock_redirects_to_preview(
     assert mock_client.get("/api/photos/999/original", follow_redirects=False).status_code == 404
 
 
-def test_mock_admin_stats(admin: AdminClient, mock_client: TestClient) -> None:
+def test_mock_download_stats(admin: AdminClient, mock_client: TestClient) -> None:
     mock_client.cookies = admin.http.cookies
-    views = mock_client.get("/api/admin/stats/views", params={"from": "2026-11-01", "to": "2026-11-07"})
-    assert views.status_code == 200 and views.headers["x-mock"] == "true"
-    body = views.json()
-    assert len(body["days"]) == 7 and body["total"] == sum(d["views"] for d in body["days"])
-    too_long = mock_client.get("/api/admin/stats/views", params={"from": "2025-01-01", "to": "2026-11-07"})
-    assert too_long.status_code == 422
-    assert len(mock_client.get("/api/admin/stats/top", params={"days": 30}).json()["items"]) == 20
-    assert mock_client.get("/api/admin/stats/downloads").json()["items"]
+    res = mock_client.get("/api/admin/stats/downloads")
+    assert res.status_code == 200 and res.headers["x-mock"] == "true" and res.json()["items"]
 
 
 def test_mock_admin_stats_still_require_login(mock_client: TestClient) -> None:
-    assert mock_client.get("/api/admin/stats/top").status_code == 401
+    assert mock_client.get("/api/admin/stats/downloads").status_code == 401
 
 
 def test_mock_off_returns_501(client: TestClient) -> None:
-    res = client.post("/api/posts/1/views")
+    res = client.get("/api/photos/1/original", follow_redirects=False)
     assert res.status_code == 501 and "x-mock" not in res.headers

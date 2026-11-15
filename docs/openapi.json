@@ -1673,16 +1673,6 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "아직 구현되지 않음",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
           }
         }
       }
@@ -1701,10 +1691,10 @@
             "required": false,
             "schema": {
               "$ref": "#/components/schemas/StatsPeriod",
-              "description": "최근 며칠",
+              "description": "최근 며칠(오늘 포함)",
               "default": 7
             },
-            "description": "최근 며칠"
+            "description": "최근 며칠(오늘 포함)"
           }
         ],
         "responses": {
@@ -1730,16 +1720,6 @@
           },
           "422": {
             "description": "입력값 검증 실패",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "아직 구현되지 않음",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2034,16 +2014,6 @@
           },
           "429": {
             "description": "요청 과다 (Retry-After 헤더)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "아직 구현되지 않음",
             "content": {
               "application/problem+json": {
                 "schema": {

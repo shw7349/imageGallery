@@ -99,8 +99,6 @@ def test_every_admin_route_requires_admin(app: FastAPI) -> None:
 
 # 미구현(501) 엔드포인트: 유효한 요청을 보내면 501 problem+json
 NOT_IMPLEMENTED_ADMIN: list[tuple[str, str, dict[str, Any] | None]] = [
-    ("GET", "/api/admin/stats/views?from=2026-11-01&to=2026-11-30", None),
-    ("GET", "/api/admin/stats/top?days=7", None),
     ("GET", "/api/admin/stats/downloads?days=30", None),
 ]
 # 인증 확인용: 구현 여부와 무관하게 로그인 없이는 401
@@ -116,10 +114,11 @@ ADMIN_ENDPOINTS: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/api/admin/photos/1", None),
     ("DELETE", "/api/admin/photos/1", None),
     ("POST", "/api/admin/photos/1/retry", None),
+    ("GET", "/api/admin/stats/views?from=2026-11-01&to=2026-11-30", None),
+    ("GET", "/api/admin/stats/top?days=7", None),
     *NOT_IMPLEMENTED_ADMIN,
 ]
 NOT_IMPLEMENTED_PUBLIC: list[tuple[str, str]] = [
-    ("POST", "/api/posts/1/views"),
     ("GET", "/api/photos/1/original"),
 ]
 

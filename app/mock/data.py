@@ -5,25 +5,20 @@
 
 import random
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.errors import Forbidden, NotFound, ValidationFailed
+from app.errors import Forbidden, NotFound
 from app.models import Photo, PhotoStatus, Post, PostStatus
 from app.schemas.public import Exif
 from app.schemas.stats import (
-    DailyViews,
     DownloadsStatsOut,
     PhotoDownloads,
     StatsPeriod,
-    TopPost,
-    TopPostsOut,
-    ViewsStatsOut,
 )
-from app.services import public
 from app.services.urls import cdn_url
 
 MOCK_IMAGE_COUNT = 12  # seed_mock_images.py가 만드는 이미지 수
@@ -124,10 +119,6 @@ DemoPost = _Post
 # 실제 DB의 공개 게시물 기준으로 동작한다.
 
 
-def record_view(session: Session, post_id: int) -> None:
-    public.require_public_post(session, post_id)  # 없는·비공개 게시물은 404. 숫자는 바꾸지 않는다.
-
-
 def original_download_url(session: Session, cdn_base_url: str, photo_id: int) -> str:
     """실제로는 원본의 10분짜리 Presigned URL. 목업은 같은 사진의 미리보기 이미지로 보낸다."""
     row = session.execute(
@@ -146,32 +137,6 @@ def original_download_url(session: Session, cdn_base_url: str, photo_id: int) ->
 
 
 # ── 관리자 통계 ──────────────────────────────────────────
-
-
-def _daily(day: date) -> int:
-    return random.Random(day.toordinal()).randint(20, 400)  # noqa: S311  # 목업
-
-
-def views_stats(from_date: date, to_date: date) -> ViewsStatsOut:
-    if to_date < from_date:
-        raise ValidationFailed("to는 from 이후여야 합니다")
-    span = (to_date - from_date).days + 1
-    if span > MAX_STATS_DAYS:
-        raise ValidationFailed(f"기간은 최대 {MAX_STATS_DAYS}일입니다")
-    days = [
-        DailyViews(date=from_date + timedelta(days=i), views=_daily(from_date + timedelta(days=i)))
-        for i in range(span)
-    ]
-    return ViewsStatsOut(from_date=from_date, to_date=to_date, total=sum(d.views for d in days), days=days)
-
-
-def top_posts(days: StatsPeriod) -> TopPostsOut:
-    rows = sorted(_dataset(), key=lambda p: -p.view_count)[:20]
-    scale = int(days) / 90
-    return TopPostsOut(
-        days=int(days),
-        items=[TopPost(post_id=p.id, title=p.title, views=max(1, int(p.view_count * scale))) for p in rows],
-    )
 
 
 def downloads_stats(days: StatsPeriod) -> DownloadsStatsOut:

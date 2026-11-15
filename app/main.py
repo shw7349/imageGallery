@@ -15,6 +15,7 @@ from app.api import health
 from app.api.admin import build_admin_router
 from app.api.errors import problem_responses, register_error_handlers
 from app.api.public import build_public_router
+from app.api.ratelimit import RateLimiter
 from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
 from app.logging import request_id_var, setup_logging
@@ -75,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Gallery Backend", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
+    app.state.view_limiter = RateLimiter(settings.views_rate_per_minute)
 
     @app.middleware("http")
     async def request_context(

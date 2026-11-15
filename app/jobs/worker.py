@@ -2,7 +2,8 @@
 
 - WORKER_CONCURRENCY개의 스레드가 각자 claim → 처리 → complete/fail을 반복한다.
 - 작업이 없으면 폴링 간격을 2초에서 최대 30초까지 점점 늘린다(작업이 생기면 다시 2초).
-- 메인 스레드는 주기적으로 reclaim_stale(죽은 워커의 작업 회수)을 실행한다.
+- 메인 스레드는 주기적으로 reclaim_stale(죽은 워커의 작업 회수)을 실행하고,
+  하루 1회 유지보수(30일 지난 조회수 중복 제거 기록 삭제)를 한다.
 - SIGTERM/SIGINT: 새 작업은 받지 않고, 진행 중인 작업을 끝낸 뒤 종료한다.
 """
 
@@ -12,6 +13,7 @@ import signal
 import socket
 import sys
 import threading
+import time
 from datetime import timedelta
 from types import FrameType
 
@@ -21,9 +23,12 @@ from app.imaging import derivatives
 from app.jobs import queue
 from app.jobs.processing import PhotoProcessor, make_processor
 from app.logging import setup_logging
+from app.services import views
 from app.storage.s3 import S3Storage
 
 logger = logging.getLogger(__name__)
+
+MAINTENANCE_INTERVAL_SECONDS = 24 * 3600
 
 
 class Worker:
@@ -42,6 +47,7 @@ class Worker:
         self.stop_event = threading.Event()
         self.processed = 0
         self._lock = threading.Lock()
+        self._last_maintenance: float | None = None
 
     def stop(self) -> None:
         if not self.stop_event.is_set():
@@ -80,6 +86,20 @@ class Worker:
                 session, timedelta(seconds=self.settings.job_stale_after_seconds), self.policy
             )
 
+    def maintenance(self, now: float | None = None) -> bool:
+        """마지막 실행 후 24시간이 지났으면 유지보수를 하고 True. 여러 워커가 실행해도 안전(멱등)."""
+        now = time.monotonic() if now is None else now
+        if self._last_maintenance is not None and now - self._last_maintenance < MAINTENANCE_INTERVAL_SECONDS:
+            return False
+        with self.factory() as session:
+            views.purge_dedupe(
+                session,
+                views.today_in(self.settings.stats_timezone),
+                self.settings.view_dedupe_retention_days,
+            )
+        self._last_maintenance = now
+        return True
+
     # ── 루프 ────────────────────────────────────────────
 
     def _loop(self, slot: int) -> None:
@@ -111,8 +131,9 @@ class Worker:
         while True:
             try:
                 self.reclaim()
-            except Exception:  # 회수 실패는 다음 주기에 다시 시도
-                logger.exception("reclaim failed")
+                self.maintenance()
+            except Exception:  # 회수·유지보수 실패는 다음 주기에 다시 시도
+                logger.exception("reclaim/maintenance failed")
             if self.stop_event.wait(self.settings.worker_reclaim_interval_seconds):
                 break
         for t in threads:

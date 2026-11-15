@@ -4,6 +4,7 @@ from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -49,6 +50,11 @@ class Settings(BaseSettings):
     upload_max_bytes: int = Field(default=1024**3, ge=1)
     upload_part_size: int = Field(default=16 * 1024**2, ge=5 * 1024**2)
 
+    # 조회수·통계 (10단계). 일별 집계 기준 시간대, IP당 분당 조회수 기록 요청 한도, 중복 제거 기록 보관 일수
+    stats_timezone: str = "Asia/Seoul"
+    views_rate_per_minute: int = Field(default=60, ge=1)
+    view_dedupe_retention_days: int = Field(default=30, ge=2)
+
     # 프론트 개발용 목업 모드: 아직 구현 전인 엔드포인트가 계약대로 가짜 데이터를 돌려준다(X-Mock 헤더).
     # 운영(ENV=prod)에서는 켤 수 없다.
     mock_api: bool = False
@@ -74,6 +80,15 @@ class Settings(BaseSettings):
         """`CORS_ORIGINS=https://a.com,https://b.com` 형식의 쉼표 구분 문자열을 허용한다."""
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
+        return value
+
+    @field_validator("stats_timezone")
+    @classmethod
+    def _valid_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"알 수 없는 시간대: {value}") from exc
         return value
 
     @model_validator(mode="after")
